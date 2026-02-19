@@ -79,6 +79,8 @@ export default function AdminTechSchedule({ onClose, initialCustomerId, onAppoin
   const [showEditTimePicker, setShowEditTimePicker] = useState(false);
   const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const MINUTES = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomerForAdd, setSelectedCustomerForAdd] = useState(null);
 
   // Define special service subtypes
   const specialServiceSubtypes = [
@@ -1568,7 +1570,7 @@ export default function AdminTechSchedule({ onClose, initialCustomerId, onAppoin
           </View>
         )}
 
-        {/* ADD CUSTOMER */}
+        {/* ADD CUSTOMER DROPDOWN */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
             <MaterialIcons name="person-add" size={20} color="#2c3e50" />
@@ -1579,40 +1581,83 @@ export default function AdminTechSchedule({ onClose, initialCustomerId, onAppoin
           </Text>
         </View>
 
-        {customers.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconContainer}>
-              <MaterialIcons name="people-outline" size={60} color="#ddd" />
-            </View>
-            <Text style={styles.emptyStateTitle}>No Customers</Text>
-            <Text style={styles.emptyStateText}>
-              Add customers first from the Admin Dashboard
+        {/* Customer Dropdown Button */}
+        <TouchableOpacity
+          style={styles.customerDropdownButton}
+          onPress={() => setShowCustomerDropdown(!showCustomerDropdown)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.dropdownContent}>
+            <MaterialIcons name="people" size={20} color="#666" />
+            <Text style={styles.dropdownText}>
+              {selectedCustomerForAdd 
+                ? customers.find(c => c.customerId === selectedCustomerForAdd)?.customerName 
+                : "Select a customer to schedule"}
             </Text>
           </View>
-        ) : (
-          <View style={styles.customersGrid}>
-            {customers.slice(0, 6).map((item) => (
-              <TouchableOpacity
-                key={item.customerId} 
-                style={styles.customerCard}
-                onPress={() => addCustomerToSchedule(item.customerId)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.customerAvatar}>
-                  <Text style={styles.customerAvatarText}>
-                    {item.customerName.charAt(0).toUpperCase()}
-                  </Text>
+          <MaterialIcons 
+            name={showCustomerDropdown ? "expand-less" : "expand-more"} 
+            size={24} 
+            color="#666" 
+          />
+        </TouchableOpacity>
+
+        {/* Customer Dropdown Options */}
+        {showCustomerDropdown && (
+          <View style={styles.customerDropdownOptions}>
+            <ScrollView 
+              style={styles.customerOptionList}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
+              {customers.length === 0 ? (
+                <View style={styles.customerOptionEmpty}>
+                  <Text style={styles.customerOptionEmptyText}>No customers available</Text>
                 </View>
-                <View style={styles.customerInfo}>
-                  <Text style={styles.customerName} numberOfLines={1}>
-                    {item.customerName}
-                  </Text>
-                  <Text style={styles.customerId}>ID: {item.customerId}</Text> 
-                </View>
-                <MaterialIcons name="add-circle" size={24} color="#1f9c8b" />
-              </TouchableOpacity>
-            ))}
+              ) : (
+                customers.map((item) => (
+                  <TouchableOpacity
+                    key={item.customerId}
+                    style={[
+                      styles.customerOption,
+                      selectedCustomerForAdd === item.customerId && styles.customerOptionSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedCustomerForAdd(item.customerId);
+                      setShowCustomerDropdown(false);
+                    }}
+                  >
+                    <View style={styles.customerOptionContent}>
+                      <View style={styles.customerOptionAvatar}>
+                        <Text style={styles.customerOptionAvatarText}>
+                          {item.customerName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.customerOptionInfo}>
+                        <Text style={styles.customerOptionName}>{item.customerName}</Text>
+                        <Text style={styles.customerOptionId}>ID: {item.customerId}</Text>
+                      </View>
+                    </View>
+                    {selectedCustomerForAdd === item.customerId && (
+                      <MaterialIcons name="check" size={20} color="#1f9c8b" />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
           </View>
+        )}
+
+        {/* Schedule Button */}
+        {selectedCustomerForAdd && (
+          <TouchableOpacity
+            style={styles.scheduleButton}
+            onPress={() => addCustomerToSchedule(selectedCustomerForAdd)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="add-circle" size={20} color="#fff" />
+            <Text style={styles.scheduleButtonText}>Schedule Appointment</Text>
+          </TouchableOpacity>
         )}
 
         {/* FOOTER */}
@@ -3607,4 +3652,119 @@ timePickerContainer: {
     alignSelf: 'stretch', 
     width: "100%",// Make it take full width
   },
+  customerDropdownButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  backgroundColor: '#fff',
+  marginHorizontal: 24,
+  marginBottom: 12,
+  borderRadius: 12,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: '#e9ecef',
+  shadowColor: '#000',
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.05,
+  shadowRadius: 8,
+  elevation: 3,
+},
+customerDropdownOptions: {
+  backgroundColor: '#fff',
+  marginHorizontal: 24,
+  marginBottom: 16,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: '#e9ecef',
+  maxHeight: 300,
+  shadowColor: '#000',
+  shadowOffset: {
+    width: 0,
+    height: 4,
+  },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 5,
+},
+customerOption: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: '#f0f0f0',
+},
+customerOptionSelected: {
+  backgroundColor: '#f0f9f8',
+},
+customerOptionContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  flex: 1,
+},
+customerOptionAvatar: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#1f9c8b',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 12,
+},
+customerOptionAvatarText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#fff',
+},
+customerOptionInfo: {
+  flex: 1,
+},
+customerOptionName: {
+  fontSize: 15,
+  fontWeight: '500',
+  color: '#2c3e50',
+  marginBottom: 2,
+},
+customerOptionId: {
+  fontSize: 11,
+  color: '#666',
+},
+customerOptionList: {
+  borderRadius: 12,
+},
+customerOptionEmpty: {
+  padding: 20,
+  alignItems: 'center',
+},
+customerOptionEmptyText: {
+  fontSize: 14,
+  color: '#999',
+},
+scheduleButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#1f9c8b',
+  marginHorizontal: 24,
+  marginBottom: 24,
+  padding: 16,
+  borderRadius: 12,
+  gap: 8,
+  shadowColor: '#000',
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+scheduleButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#fff',
+},
 });
