@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Pestify",
-    "slug": "snack-afcf5c09-a1e0-4fe9-8bfa-23c265329215",
+    "name": "Pestify Dev",
+    "slug": "pestify-dev",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,8 +14,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cpamporis.pestfree",
-      "buildNumber": "2",
+      "bundleIdentifier": "com.cpamporis.pestfree.dev",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload inspection photos.",
@@ -28,19 +28,20 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.cpamporis.pestfree"
+      "package": "com.cpamporis.pestfree.dev"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "c4d59ab4-62e2-4bf4-9c30-1eca7b914a47"
-      }
-    },
     "owner": "cpamporis",
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-localization"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a890840a-594c-462f-8827-728aca0306fc"
+      }
+    }
   }
 }

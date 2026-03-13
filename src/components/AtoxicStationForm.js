@@ -11,6 +11,7 @@ import {
   Alert,
   StyleSheet
 } from "react-native";
+import i18n from "../services/i18n";
 
 function AtoxicStationForm({
   stationId,
@@ -104,36 +105,54 @@ function AtoxicStationForm({
 
     // CAPTURE
     if (!capture) {
-      Alert.alert("Incomplete Form", "You need to log Capture before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.captureRequired")
+      );
       return;
     }
 
     // RODENTS (only if capture yes)
     if (capture === "Yes" && !rodentsCaptured) {
-      Alert.alert("Incomplete Form", "You need to log Rodents Captured before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.rodentsRequired")
+      );
       return;
     }
 
     // TYPE-SPECIFIC
     if (stationType === "RM" && !replacedSurface) {
-      Alert.alert("Incomplete Form", "You need to log Replaced Surface before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.replacedSurfaceRequired")
+      );
       return;
     }
 
     if (stationType === "ST" && !triggered) {
-      Alert.alert("Incomplete Form", "You need to log Triggered before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.triggeredRequired")
+      );
       return;
     }
 
     // CONDITION
     if (!condition) {
-      Alert.alert("Incomplete Form", "You need to log Condition before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.conditionRequired")
+      );
       return;
     }
 
     // ACCESS (should always be "Yes" here since we handled "No" above)
     if (!access) {
-      Alert.alert("Incomplete Form", "You need to log Access before saving");
+      Alert.alert(
+        i18n.t("components.stationForms.common.incompleteForm"), 
+        i18n.t("components.stationForms.atoxicStation.error.accessRequired")
+      );
       return;
     }
 
@@ -157,17 +176,24 @@ function AtoxicStationForm({
     onClose();
   };
 
+  const stationTypeLabel = stationType === "ST" 
+    ? i18n.t("components.stationForms.atoxicStation.snapTrap") 
+    : i18n.t("components.stationForms.atoxicStation.multicatch");
+
   return (
     <Modal transparent animationType="fade" visible={true}>
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>
-            {stationType === "ST" ? "Snap Trap" : "Multicatch"} {stationId}
+            {i18n.t("components.stationForms.atoxicStation.title", { 
+              type: stationTypeLabel, 
+              id: stationId 
+            })}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Capture */}
-            <Text style={styles.label}>Capture</Text>
+            <Text style={styles.label}>{i18n.t("components.stationForms.atoxicStation.capture")}</Text>
             <View style={styles.row}>
               {["Yes", "No"].map(v => (
                 <TouchableOpacity
@@ -185,20 +211,22 @@ function AtoxicStationForm({
                   <Text style={[
                     capture === v && styles.activeText,
                     access === "No" && styles.disabledText
-                  ]}>{v}</Text>
+                  ]}>
+                    {v === "Yes" ? i18n.t("components.stationForms.common.yes") : i18n.t("components.stationForms.common.no")}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {capture === "Yes" && access !== "No" && (
               <>
-                <Text style={styles.label}>Rodents Captured</Text>
+                <Text style={styles.label}>{i18n.t("components.stationForms.atoxicStation.rodentsCaptured")}</Text>
                 <TextInput
                   style={[styles.input, access === "No" && styles.disabledInput]}
                   keyboardType="numeric"
                   value={rodentsCaptured}
                   onChangeText={setRodentsCaptured}
-                  placeholder="Rodents Captured"
+                  placeholder={i18n.t("components.stationForms.atoxicStation.rodentsPlaceholder")}
                   editable={access !== "No"}
                 />
               </>
@@ -207,7 +235,7 @@ function AtoxicStationForm({
             {/* Type-specific */}
             {stationType === "ST" && (
               <>
-                <Text style={styles.label}>Triggered</Text>
+                <Text style={styles.label}>{i18n.t("components.stationForms.atoxicStation.triggered")}</Text>
                 <View style={styles.row}>
                   {["Yes", "No"].map(v => (
                     <TouchableOpacity
@@ -225,7 +253,9 @@ function AtoxicStationForm({
                       <Text style={[
                         triggered === v && styles.activeText,
                         access === "No" && styles.disabledText
-                      ]}>{v}</Text>
+                      ]}>
+                        {v === "Yes" ? i18n.t("components.stationForms.common.yes") : i18n.t("components.stationForms.common.no")}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -234,7 +264,7 @@ function AtoxicStationForm({
 
             {stationType === "RM" && (
               <>
-                <Text style={styles.label}>Replaced Surface</Text>
+                <Text style={styles.label}>{i18n.t("components.stationForms.atoxicStation.replacedSurface")}</Text>
                 <View style={styles.row}>
                   {["Yes", "No"].map(v => (
                     <TouchableOpacity
@@ -252,7 +282,9 @@ function AtoxicStationForm({
                       <Text style={[
                         replacedSurface === v && styles.activeText,
                         access === "No" && styles.disabledText
-                      ]}>{v}</Text>
+                      ]}>
+                        {v === "Yes" ? i18n.t("components.stationForms.common.yes") : i18n.t("components.stationForms.common.no")}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -260,7 +292,7 @@ function AtoxicStationForm({
             )}
 
             {/* Condition */}
-            <Text style={styles.label}>Condition</Text>
+            <Text style={styles.label}>{i18n.t("components.stationForms.common.condition")}</Text>
             <View style={styles.row}>
               {["Functional", "Damaged"].map(v => (
                 <TouchableOpacity
@@ -278,13 +310,17 @@ function AtoxicStationForm({
                   <Text style={[
                     condition === v && styles.activeText,
                     access === "No" && styles.disabledText
-                  ]}>{v}</Text>
+                  ]}>
+                    {v === "Functional" 
+                      ? i18n.t("components.stationForms.common.functional") 
+                      : i18n.t("components.stationForms.common.damaged")}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* Access */}
-            <Text style={styles.label}>Access</Text>
+            <Text style={styles.label}>{i18n.t("components.stationForms.common.access")}</Text>
             <View style={styles.row}>
               {["Yes", "No"].map(v => (
                 <TouchableOpacity
@@ -294,7 +330,9 @@ function AtoxicStationForm({
                     setAccess(v);
                   }}
                 >
-                  <Text style={access === v && styles.activeText}>{v}</Text>
+                  <Text style={access === v && styles.activeText}>
+                    {v === "Yes" ? i18n.t("components.stationForms.common.yes") : i18n.t("components.stationForms.common.no")}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -302,10 +340,10 @@ function AtoxicStationForm({
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.save} onPress={handleSave} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{i18n.t("components.stationForms.common.save")}</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancel} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{i18n.t("components.stationForms.common.cancel")}</Text>
             </TouchableOpacity>
           </View>
         </View>

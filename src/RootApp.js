@@ -97,8 +97,11 @@ export default function RootApp() {
       return (
         <ReportScreen
           context={{
-            visitId: selectedVisit.visit_id,
-            serviceType: selectedVisit.service_type,
+            visitId: selectedVisit.visitId,
+            serviceType: selectedVisit.serviceType,
+            customerName: selectedVisit.customerName,
+            technicianName: selectedVisit.technicianName,
+            startTime: selectedVisit.startTime,
             readOnly: true
           }}
           onBack={() => {

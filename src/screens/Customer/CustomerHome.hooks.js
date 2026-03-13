@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Alert, Platform, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiService from "../../services/apiService";
+import { launchImageLibrary, launchCamera } from "react-native-image-picker";
 import {
   loadNotifications,
   markNotificationAsRead,
@@ -11,7 +12,8 @@ import {
   formatTimeAgo,
   NOTIFICATIONS_READ_STORAGE_KEY,
 } from "./CustomerHome.notifications";
-import { MaterialIcons, FontAwesome5, Ionicons, Feather, Entypo, MaterialCommunityIcons } from '@expo/vector-icons';;
+import { MaterialIcons, FontAwesome5, Ionicons, Feather, Entypo, MaterialCommunityIcons } from '@expo/vector-icons';
+import i18n from "../../services/i18n";
 
 export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [lastVisit, setLastVisit] = useState(null);
   const [loadingVisits, setLoadingVisits] = useState(false);
+  const [serviceRequestImages, setServiceRequestImages] = useState([]);
   
   
   // Service Request Form states
@@ -60,6 +63,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   const [refreshing, setRefreshing] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [lastFetchTime, setLastFetchTime] = useState(null);
+  
 
     useEffect(() => {
         setPreferredTime("09:30");
@@ -173,7 +177,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
                   console.log("❌ Dashboard failed:", result?.error);
                   setDashboard({
                     success: false,
-                    customer: { name: "Customer", email: "" },
+                    customer: { name: i18n.t("customer.welcome.customer"), email: "" },
                     nextAppointment: null,
                     upcomingAppointments: [],
                     compliance: { status: "pending" }
@@ -192,7 +196,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
                 console.error("❌ Dashboard loading error:", error);
                 setDashboard({
                   success: false,
-                  customer: { name: "Customer", email: "" },
+                  customer: { name: i18n.t("customer.welcome.customer"), email: "" },
                   nextAppointment: null,
                   upcomingAppointments: [],
                   compliance: { status: "pending" }
@@ -299,6 +303,69 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   /* =========================
      HANDLERS / HELPERS
   ========================== */
+
+  const getNotificationContent = (notification) => {
+    const type = notification.type;
+    const t = i18n.t;
+    
+    // Handle different notification types with proper translations
+    switch (type) {
+      case 'appointment_created':
+        return {
+          title: t('customer.notificationTypes.appointment_created.title'),
+          description: notification.appointmentDate && notification.appointmentTime 
+            ? `${t('customer.notificationTypes.appointment_created.description')} ${notification.appointmentDate} ${t('customer.common.at')} ${notification.appointmentTime}`
+            : t('customer.notificationTypes.appointment_created.description')
+        };
+        
+      case 'appointment_updated':
+        return {
+          title: t('customer.notificationTypes.appointment_updated.title'),
+          description: notification.appointmentDate && notification.appointmentTime
+            ? `${t('customer.notificationTypes.appointment_updated.description')} ${notification.appointmentDate} ${t('customer.common.at')} ${notification.appointmentTime}`
+            : t('customer.notificationTypes.appointment_updated.description')
+        };
+        
+      case 'appointment_deleted':
+        return {
+          title: t('customer.notificationTypes.appointment_deleted.title'),
+          description: t('customer.notificationTypes.appointment_deleted.description')
+        };
+        
+      case 'appointment_completed':
+      case 'visit_completed':
+        return {
+          title: t('customer.notificationTypes.appointment_completed.title'),
+          description: notification.description || t('customer.notificationTypes.appointment_completed.description')
+        };
+        
+      case 'service_request_accepted':
+        return {
+          title: t('customer.notificationTypes.service_request_accepted.title'),
+          description: t('customer.notificationTypes.service_request_accepted.description')
+        };
+        
+      case 'service_request_declined':
+        return {
+          title: t('customer.notificationTypes.service_request_declined.title'),
+          description: t('customer.notificationTypes.service_request_declined.description')
+        };
+        
+      case 'reschedule_declined':
+        return {
+          title: t('customer.notificationTypes.reschedule_declined.title'),
+          description: notification.description || t('customer.notificationTypes.reschedule_declined.description')
+        };
+        
+      default:
+        return {
+          title: notification.title || t('customer.notifications.title'),
+          description: notification.description || notification.message || ''
+        };
+    }
+  };
+
+  
 
   const loadAppointments = async () => {
       try {
@@ -412,22 +479,22 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
 
   const handleServiceRequest = async () => {
       if (!serviceType) {
-        Alert.alert("Error", "Please select a service type");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.noServiceType"));
         return;
       }
   
       if (serviceType === "special" && !specialServiceSubtype) {
-        Alert.alert("Error", "Please select a specific service type for Special Service");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.noSpecialSubtype"));
         return;
       }
   
       if (serviceType === "special" && specialServiceSubtype === "other" && !otherPestName.trim()) {
-        Alert.alert("Error", "Please specify the pest name for 'Other' service");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.noOtherPest"));
         return;
       }
   
       if (!description.trim()) {
-        Alert.alert("Error", "Please provide a description of the problem");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.noDescription"));
         return;
       }
   
@@ -435,7 +502,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
         setSubmittingRequest(true);
         
         if (!dashboard || !dashboard.customer || !dashboard.customer.customerId) {
-          Alert.alert("Error", "Customer information not available. Please try again.");
+          Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.noCustomerInfo"));
           setSubmittingRequest(false);
           return;
         }
@@ -455,13 +522,43 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
         };
   
         console.log("📤 Submitting service request to backend:", requestData);
-  
-        const result = await apiService.submitCustomerRequest(requestData);
+
+        let result;
+
+        if (serviceRequestImages.length > 0) {
+          const formData = new FormData();
+
+          // Append normal fields
+          Object.keys(requestData).forEach((key) => {
+            if (requestData[key] !== null && requestData[key] !== undefined) {
+              formData.append(key, requestData[key]);
+            }
+          });
+
+          // Append ALL images
+          serviceRequestImages.forEach((img, index) => {
+            formData.append("images", {
+              uri: img.uri,
+              type: img.type || "image/jpeg",
+              name:
+                img.fileName ||
+                `service_request_${index}_${Date.now()}.jpg`,
+            });
+          });
+
+          console.log(`📸 Sending request WITH ${serviceRequestImages.length} images`);
+
+          result = await apiService.submitCustomerRequest(formData, true);
+        } else {
+          console.log("📨 Sending request WITHOUT images");
+
+          result = await apiService.submitCustomerRequest(requestData);
+        }
         
         if (result?.success) {
           Alert.alert(
-            "Request Submitted Successfully",
-            "Your service request has been received. Our team will review it and contact you within 24 hours.",
+            i18n.t("customer.serviceRequest.success.title"),
+            i18n.t("customer.serviceRequest.success.message"),
             [
               {
                 text: "OK",
@@ -472,6 +569,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
                   setOtherPestName("");
                   setUrgency("normal");
                   setDescription("");
+                  setServiceRequestImages([]);
                   setPreferredDate("");
                   const now = new Date();
                   const hour = now.getHours().toString().padStart(2, '0');
@@ -483,12 +581,12 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
             ]
           );
         } else {
-          throw new Error(result?.error || "Failed to submit request");
+          throw new Error(result?.error || i18n.t("customer.serviceRequest.error.submitFailed"));
         }
   
       } catch (err) {
         console.error("Service request error:", err);
-        Alert.alert("Error", err.message || "Failed to submit service request. Please try again.");
+        Alert.alert(i18n.t("common.error"), err.message || i18n.t("customer.serviceRequest.error.submitFailed"));
       } finally {
         setSubmittingRequest(false);
       }
@@ -604,7 +702,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
 
   const handleRescheduleAppointment = async (appointment) => {
     if (!newAppointmentDate || !newAppointmentTime) {
-      Alert.alert("Error", "Please select both date and time");
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.modals.reschedule.error.selectBoth"));
       return;
     }
 
@@ -617,7 +715,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       today.setHours(0, 0, 0, 0);
       
       if (newDateObj < today) {
-        Alert.alert("Invalid Date", "Please select a future date");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.modals.reschedule.error.futureDate"));
         setRescheduling(false);
         return;
       }
@@ -635,8 +733,8 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       
       if (result?.success) {
         Alert.alert(
-          "Request Submitted",
-          "Your reschedule request has been submitted. The admin will review it shortly.",
+          i18n.t("customer.modals.reschedule.success.title"),
+          i18n.t("customer.modals.reschedule.success.message"),
           [
             {
               text: "OK",
@@ -653,12 +751,12 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
           ]
         );
       } else {
-        throw new Error(result?.error || "Failed to submit reschedule request");
+        throw new Error(result?.error || i18n.t("customer.modals.reschedule.error.submitFailed") || "Failed to submit reschedule request");
       }
       
     } catch (err) {
       console.error("❌ Reschedule request error:", err);
-      Alert.alert("Error", err.message || "Failed to submit reschedule request");
+      Alert.alert(i18n.t("common.error"), err.message || i18n.t("customer.modals.reschedule.error.submitFailed") || "Failed to submit reschedule request");
     } finally {
       setRescheduling(false);
     }
@@ -667,19 +765,19 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   const handleChangePassword = async () => {
     // Basic validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Error", "All fields are required");
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.account.changePassword.error.allFields"));
       return;
     }
 
     // Check if new password meets minimum requirements
-    if (newPassword.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+    if (newPassword.length < 8) {
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.account.changePassword.error.minLength"));
       return;
     }
 
     // Check if passwords match
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.account.changePassword.error.mismatch"));
       return;
     }
 
@@ -694,8 +792,8 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
 
       if (result?.success) {
         Alert.alert(
-          "Success", 
-          "Password updated successfully",
+          i18n.t("common.success"), 
+          i18n.t("customer.account.changePassword.success"),
           [
             {
               text: "OK",
@@ -711,16 +809,16 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
         );
       } else {
         // Handle API error response
-        const errorMessage = result?.error || "Failed to update password";
+        const errorMessage = result?.error || i18n.t("customer.account.changePassword.error.updateFailed");
         
         // ✅ FIX: Don't log this specific error to the customer's console
         // Only show the appropriate alert
         if (errorMessage.includes("Invalid current password")) {
-          Alert.alert("Error", "Your current password is wrong");
+          Alert.alert(i18n.t("common.error"), i18n.t("customer.account.changePassword.error.wrongCurrent"));
           // Clear current password field
           setCurrentPassword("");
         } else {
-          Alert.alert("Error", errorMessage);
+          Alert.alert(i18n.t("common.error"), errorMessage);
         }
       }
 
@@ -728,7 +826,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       console.error("Password change error:", err);
       
       // Handle fetch/network errors
-      let errorMessage = "Failed to update password. Please try again.";
+      let errorMessage = i18n.t("customer.account.changePassword.error.updateFailed");
       
       // Check if it's an invalid current password error
       if (
@@ -736,29 +834,101 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
         err?.message?.includes("Invalid current password") ||
         err?.response?.data?.error?.includes("Invalid current password")
       ) {
-        errorMessage = "Your current password is wrong";
+        errorMessage = i18n.t("customer.account.changePassword.error.wrongCurrent");
         setCurrentPassword("");
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert(i18n.t("common.error"), errorMessage);
     } finally {
       setChangingPassword(false);
     }
   };
 
+  const pickserviceRequestImagesFromGallery = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: "photo",
+        quality: 0.8,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        selectionLimit: 0,
+      });
+
+      if (result.didCancel) return;
+
+      if (result.errorCode) {
+        Alert.alert(i18n.t("common.error"), result.errorMessage || i18n.t("customer.serviceRequest.error.imagePicker") || "Failed to pick image");
+        return;
+      }
+
+      if (result.assets?.length > 0) {
+        setServiceRequestImages(prev => {
+          const newImages = result.assets.filter(
+            newImg => !prev.some(oldImg => oldImg.uri === newImg.uri)
+          );
+          return [...prev, ...newImages];
+        });
+      }
+    } catch (error) {
+      console.error("Image picker error:", error);
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.imagePicker") || "Failed to access image library");
+    }
+  };
+
+  const captureserviceRequestImages = async () => {
+    try {
+      const result = await launchCamera({
+        mediaType: "photo",
+        quality: 0.8,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        cameraType: "back",
+        saveToPhotos: true,
+      });
+
+      if (result.didCancel) return;
+
+      if (result.errorCode) {
+        Alert.alert(i18n.t("common.error"), result.errorMessage || i18n.t("customer.serviceRequest.error.camera") || "Failed to capture image");
+        return;
+      }
+
+      if (!result.canceled && result.assets?.length > 0) {
+        setServiceRequestImages(prev => [...prev, ...result.assets]);
+      }
+    } catch (error) {
+      console.error("Camera error:", error);
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.serviceRequest.error.camera") || "Failed to open camera");
+    }
+  };
+
+  const openserviceRequestImagesChooser = () => {
+    Alert.alert(
+      i18n.t("customer.serviceRequest.form.addPhotos") || "Add Photo", 
+      i18n.t("customer.serviceRequest.form.chooseOption") || "Choose an option",
+      [
+        { text: i18n.t("customer.serviceRequest.form.camera") || "Camera", onPress: captureserviceRequestImages },
+        { text: i18n.t("customer.serviceRequest.form.gallery") || "Gallery", onPress: pickserviceRequestImagesFromGallery },
+        { text: i18n.t("common.cancel"), style: "cancel" },
+      ]
+    );
+  };
+
   const normalizeNotificationType = (notification) => {
-  // ✅ FIX: normalize backend visit completion
+    // First, handle backend visit completion
     if (notification.type === 'visit_completed') {
       return 'appointment_completed';
     }
 
+    // Handle reschedule declined
     if (
       notification.type === 'appointment_updated' &&
-      notification.title === 'Reschedule Declined'
+      (notification.title?.includes('Declined') || notification.title?.includes('Απορρίφθηκε'))
     ) {
       return 'reschedule_declined';
     }
 
+    // For all other types, return as-is but ensure it matches our notificationTypes
     return notification.type;
   };
 
@@ -787,7 +957,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   };
   const getServiceTypeLabel = (typeId, subtypeId = null, otherPest = null) => {
     const service = serviceTypes.find(s => s.id === typeId);
-    let label = service ? service.label : typeId || "Myocide";
+    let label = service ? service.label : typeId || i18n.t("customer.serviceTypes.myocide");
     
     if (typeId === "special" && subtypeId) {
       const subtype = specialServiceSubtypes.find(s => s.id === subtypeId);
@@ -856,23 +1026,30 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       const isTomorrow = appointmentDate.getTime() === tomorrow.getTime();
       
       if (isToday) {
-        return "Today";
+        return i18n.t("customer.common.today");
       } else if (isTomorrow) {
-        return "Tomorrow";
+        return i18n.t("customer.common.tomorrow");
       } else {
-        // Return formatted date
-        return appointmentDate.toLocaleDateString('en-US', { 
-          weekday: 'short', 
-          month: 'short', 
-          day: 'numeric',
-          year: 'numeric'
-        });
+        // Get weekday and month from translations
+        const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        
+        const weekdayIndex = appointmentDate.getDay(); // 0 = Sunday
+        const monthIndex = appointmentDate.getMonth();
+        const day = appointmentDate.getDate();
+        const year = appointmentDate.getFullYear();
+        
+        const weekday = i18n.t(`weekdays.short.${weekdays[weekdayIndex]}`);
+        const month = i18n.t(`months.${months[monthIndex]}`);
+        
+        return `${weekday}, ${day} ${month} ${year}`;
       }
     } catch (err) {
       console.error("Error formatting date:", err, dateStr);
       return String(dateStr || "");
     }
   };
+
   const handleCallPhone = () => {
     const phoneNumber = "+306986244371";
     const url = Platform.select({
@@ -883,25 +1060,25 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     Linking.canOpenURL(url)
       .then(supported => {
         if (!supported) {
-          Alert.alert("Error", "Phone calls are not supported on this device");
+          Alert.alert(i18n.t("common.error"), i18n.t("customer.contact.error.noPhone") || "Phone calls are not supported on this device");
         } else {
           return Linking.openURL(url);
         }
       })
       .catch(err => {
         console.error("Error opening phone app:", err);
-        Alert.alert("Error", "Could not open phone app");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.contact.error.cantOpenPhone") || "Could not open phone app");
       });
   };
   const handleSendEmail = () => {
     if (!emailSubject.trim() || !emailBody.trim()) {
-      Alert.alert("Error", "Please fill in both subject and message");
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.contact.error.fillBoth"));
       return;
     }
 
-    const email = "info@pest-free.gr";
+    const email = "info@pestify.gr";
     const subject = encodeURIComponent(emailSubject);
-    const body = encodeURIComponent(emailBody + "\n\n---\nSent from Pestify Customer Portal");
+    const body = encodeURIComponent(emailBody + "\n\n---\n" + i18n.t("customer.contact.email.footer") || "Sent from Pestify Customer Portal");
     const url = `mailto:${email}?subject=${subject}&body=${body}`;
 
     setSendingEmail(true);
@@ -909,7 +1086,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     Linking.canOpenURL(url)
       .then(supported => {
         if (!supported) {
-          Alert.alert("Error", "No email client is installed");
+          Alert.alert(i18n.t("common.error"), i18n.t("customer.contact.error.noEmailClient"));
           setSendingEmail(false);
         } else {
           return Linking.openURL(url);
@@ -923,7 +1100,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       })
       .catch(err => {
         console.error("Error opening email client:", err);
-        Alert.alert("Error", "Could not open email client");
+        Alert.alert(i18n.t("common.error"), i18n.t("customer.contact.error.cantOpen"));
         setSendingEmail(false);
       });
   };
@@ -971,22 +1148,22 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
   const getAppointmentStatusText = (status) => {
     switch (status) {
       case 'pending_reschedule':
-        return 'Pending Request';
+        return i18n.t("customer.appointments.status.pendingReschedule");
 
       case 'rescheduled':
-        return 'Rescheduled';
+        return i18n.t("customer.appointments.status.rescheduled");
 
       case 'scheduled':
-        return 'Scheduled';
+        return i18n.t("customer.appointments.status.scheduled");
 
       case 'completed':
-        return 'Completed';
+        return i18n.t("customer.appointments.status.completed");
 
       case 'cancelled':
-        return 'Cancelled';
+        return i18n.t("customer.appointments.status.cancelled");
 
       default:
-        return status?.toUpperCase?.() || 'UNKNOWN';
+        return status?.toUpperCase?.() || i18n.t("customer.common.unknown");
     }
   };
 
@@ -1002,19 +1179,35 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return dateStr;
     
-    const defaultOptions = {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    };
+    const { showWeekday = true, showYear = true } = options;
     
-    return date.toLocaleDateString('en-US', { ...defaultOptions, ...options });
+    const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    
+    const weekdayIndex = date.getDay();
+    const monthIndex = date.getMonth();
+    const day = date.getDate();
+    const year = date.getFullYear();
+    
+    let formattedDate = '';
+    
+    if (showWeekday) {
+      formattedDate += i18n.t(`weekdays.short.${weekdays[weekdayIndex]}`) + ', ';
+    }
+    
+    formattedDate += `${day} ${i18n.t(`months.${months[monthIndex]}`)}`;
+    
+    if (showYear) {
+      formattedDate += ` ${year}`;
+    }
+    
+    return formattedDate;
   } catch (error) {
     console.error("Date formatting error:", error);
     return dateStr;
   }
-  };
+};
+
   const formatDateShort = (dateStr) => {
     if (!dateStr) return "";
     
@@ -1029,78 +1222,84 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       appointmentDate.setHours(0, 0, 0, 0);
       
       if (appointmentDate.getTime() === today.getTime()) {
-        return "Today";
+        return i18n.t("customer.common.today");
       }
       
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       if (appointmentDate.getTime() === tomorrow.getTime()) {
-        return "Tomorrow";
+        return i18n.t("customer.common.tomorrow");
       }
       
       // If within 7 days, show weekday
       const diffDays = Math.floor((appointmentDate - today) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays < 7) {
-        return appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const weekdayIndex = appointmentDate.getDay();
+        return i18n.t(`weekdays.short.${weekdays[weekdayIndex]}`);
       }
       
-      // Otherwise show date
-      return appointmentDate.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      // Otherwise show date with translated month
+      const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const monthIndex = appointmentDate.getMonth();
+      const day = appointmentDate.getDate();
+      const month = i18n.t(`months.${months[monthIndex]}`);
+      
+      return `${day} ${month}`;
     } catch (error) {
       console.error("Short date formatting error:", error);
       return dateStr;
     }
   };
+
+  
   const serviceTypes = [
-    { id: "myocide", label: "Myocide", description: "Standard bait station service", icon: "pest-control-rodent", color: "#1f9c8b" },
-    { id: "disinfection", label: "Disinfection", description: "Disinfection service", icon: "clean-hands", color: "#1f9c8b" },
-    { id: "insecticide", label: "Insecticide", description: "Insecticide treatment", icon: "pest-control", color: "#1f9c8b" },
-    { id: "special", label: "Special Service", description: "Custom pest control services", icon: "star", color: "#1f9c8b" },
+    { id: "myocide", label: i18n.t("customer.serviceTypes.myocide"), description: i18n.t("admin.schedule.serviceType.myocide.description") || "Standard bait station service", icon: "pest-control-rodent", color: "#1f9c8b" },
+    { id: "disinfection", label: i18n.t("customer.serviceTypes.disinfection"), description: i18n.t("admin.schedule.serviceType.disinfection.description") || "Disinfection service", icon: "clean-hands", color: "#1f9c8b" },
+    { id: "insecticide", label: i18n.t("customer.serviceTypes.insecticide"), description: i18n.t("admin.schedule.serviceType.insecticide.description") || "Insecticide treatment", icon: "pest-control", color: "#1f9c8b" },
+    { id: "special", label: i18n.t("customer.serviceTypes.special"), description: i18n.t("admin.schedule.serviceType.special.description") || "Custom pest control services", icon: "star", color: "#1f9c8b" },
   ];
 
   const specialServiceSubtypes = [
-    { id: "grass_cutworm", label: "Grass Cutworm", icon: "seedling", library: "FontAwesome5" },
-    { id: "fumigation", label: "Fumigation", icon: "cloud", library: "Feather" },
-    { id: "termites", label: "Termites", icon: "bug", library: "FontAwesome5" },
-    { id: "exclusion", label: "Exclusion Service", icon: "block", library: "Entypo" }, 
-    { id: "snake_repulsion", label: "Snake Repulsion", icon: "snake", library: "MaterialCommunityIcons" }, 
-    { id: "bird_control", label: "Bird Control", icon: "feather", library: "Feather" },
-    { id: "bed_bugs", label: "Bed Bugs", icon: "bug-report", library: "MaterialIcons" },
-    { id: "fleas", label: "Fleas", icon: "paw", library: "FontAwesome5" }, 
-    { id: "plant_protection", label: "Plant Protection", icon: "grass", library: "MaterialIcons" }, 
-    { id: "palm_weevil", label: "Palm Weevil", icon: "tree", library: "FontAwesome5" },
-    { id: "other", label: "Other", icon: "more-horizontal", library: "Feather" },
+    { id: "grass_cutworm", label: i18n.t("customer.specialSubtypes.grass_cutworm"), icon: "seedling", library: "FontAwesome5" },
+    { id: "fumigation", label: i18n.t("customer.specialSubtypes.fumigation"), icon: "cloud", library: "Feather" },
+    { id: "termites", label: i18n.t("customer.specialSubtypes.termites"), icon: "bug", library: "FontAwesome5" },
+    { id: "exclusion", label: i18n.t("customer.specialSubtypes.exclusion"), icon: "block", library: "Entypo" }, 
+    { id: "snake_repulsion", label: i18n.t("customer.specialSubtypes.snake_repulsion"), icon: "snake", library: "MaterialCommunityIcons" }, 
+    { id: "bird_control", label: i18n.t("customer.specialSubtypes.bird_control"), icon: "feather", library: "Feather" },
+    { id: "bed_bugs", label: i18n.t("customer.specialSubtypes.bed_bugs"), icon: "bug-report", library: "MaterialIcons" },
+    { id: "fleas", label: i18n.t("customer.specialSubtypes.fleas"), icon: "paw", library: "FontAwesome5" }, 
+    { id: "plant_protection", label: i18n.t("customer.specialSubtypes.plant_protection"), icon: "grass", library: "MaterialIcons" }, 
+    { id: "palm_weevil", label: i18n.t("customer.specialSubtypes.palm_weevil"), icon: "tree", library: "FontAwesome5" },
+    { id: "other", label: i18n.t("customer.specialSubtypes.other"), icon: "more-horizontal", library: "Feather" },
   ];
 
   const urgencyOptions = [
     {
         id: "low",
-        label: "Low Priority",
-        description: "Schedule when convenient",
+        label: i18n.t("customer.serviceRequest.urgency.low.label"),
+        description: i18n.t("customer.serviceRequest.urgency.low.description"),
         icon: "calendar",
         color: "#1f9c8b",
     },
     {
         id: "normal",
-        label: "Normal",
-        description: "Within 1–2 weeks",
+        label: i18n.t("customer.serviceRequest.urgency.normal.label"),
+        description: i18n.t("customer.serviceRequest.urgency.normal.description"),
         icon: "clock",
         color: "#1f9c8b",
     },
     {
         id: "high",
-        label: "Urgent",
-        description: "As soon as possible",
+        label: i18n.t("customer.serviceRequest.urgency.high.label"),
+        description: i18n.t("customer.serviceRequest.urgency.high.description"),
         icon: "alert-circle",
         color: "#1f9c8b",
     },
     {
         id: "emergency",
-        label: "Emergency",
-        description: "Need immediate help",
+        label: i18n.t("customer.serviceRequest.urgency.emergency.label"),
+        description: i18n.t("customer.serviceRequest.urgency.emergency.description"),
         icon: "alert-triangle",
         color: "#1f9c8b",
     },
@@ -1164,7 +1363,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
       
     } catch (error) {
       console.error("❌ Error in handleMarkAllAsRead:", error);
-      Alert.alert("Error", "Failed to mark all notifications as read");
+      Alert.alert(i18n.t("common.error"), i18n.t("customer.notifications.markAllReadError") || "Failed to mark all notifications as read");
     }
   };
 
@@ -1186,6 +1385,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     setNotificationCount,
     setLastFetchTime,
     selectedService,
+    serviceRequestImages,
 
     /* setters */
     setShowNotifications,
@@ -1211,6 +1411,7 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     setEmailSubject,
     setEmailBody,
     rescheduling,
+    setServiceRequestImages,
 
     /* handlers */
     onLogout,
@@ -1227,6 +1428,9 @@ export default function useCustomerHome({ customer, onLogout, onViewVisits }) {
     handleChangePassword,
     handleSendEmail,
     handleCallPhone,
+    openserviceRequestImagesChooser,
+    pickserviceRequestImagesFromGallery,
+    captureserviceRequestImages,
 
     /* helpers */
     formatTimeAgo,

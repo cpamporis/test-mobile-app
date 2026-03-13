@@ -20,6 +20,9 @@ import { Swipeable } from 'react-native-gesture-handler';
 import apiService from '../../services/apiService';
 import ChemicalsDropdown from '../../components/ChemicalsDropdown';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { launchImageLibrary, launchCamera } from "react-native-image-picker";
+import { Image } from "react-native";
+import i18n from "../../services/i18n";
 
 export default function SpecialServicesScreen({ 
   technician, 
@@ -41,13 +44,15 @@ export default function SpecialServicesScreen({
   const [serviceType, setServiceType] = useState(null);
   const [specialSubtype, setSpecialSubtype] = useState(null);
   const [otherPestName, setOtherPestName] = useState('');
-
+  const [storedDuration, setStoredDuration] = useState(null);
   const [serviceStartTime, setServiceStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef(null);
 
   const [selectedChemicals, setSelectedChemicals] = useState([]);
   const [notes, setNotes] = useState('');
+  const [reportImages, setReportImages] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
 
   /* =========================
      TREATED AREAS STATE
@@ -64,24 +69,24 @@ export default function SpecialServicesScreen({
      SERVICE TYPES
   ========================= */
   const mainServiceTypes = [
-    { id: "myocide", label: "Myocide" },
-    { id: "insecticide", label: "Insecticide" },
-    { id: "disinfection", label: "Disinfection" },
-    { id: "special", label: "Special Service" },
+    { id: "myocide", label: i18n.t("serviceTypes.myocide") },
+    { id: "insecticide", label: i18n.t("serviceTypes.insecticide") },
+    { id: "disinfection", label: i18n.t("serviceTypes.disinfection") },
+    { id: "special", label: i18n.t("serviceTypes.special") },
   ];
 
   const specialServiceSubtypes = [
-    { id: "grass_cutworm", label: "Grass Cutworm" },
-    { id: "fumigation", label: "Fumigation" },
-    { id: "termites", label: "Termites" },
-    { id: "exclusion", label: "Exclusion Service" },
-    { id: "snake_repulsion", label: "Snake Repulsion" },
-    { id: "bird_control", label: "Bird Control" },
-    { id: "bed_bugs", label: "Bed Bugs" },
-    { id: "fleas", label: "Fleas" },
-    { id: "plant_protection", label: "Plant Protection" },
-    { id: "palm_weevil", label: "Palm Weevil" },
-    { id: "other", label: "Other" },
+    { id: "grass_cutworm", label: i18n.t("customer.specialSubtypes.grass_cutworm") },
+    { id: "fumigation", label: i18n.t("customer.specialSubtypes.fumigation") },
+    { id: "termites", label: i18n.t("customer.specialSubtypes.termites") },
+    { id: "exclusion", label: i18n.t("customer.specialSubtypes.exclusion") },
+    { id: "snake_repulsion", label: i18n.t("customer.specialSubtypes.snake_repulsion") },
+    { id: "bird_control", label: i18n.t("customer.specialSubtypes.bird_control") },
+    { id: "bed_bugs", label: i18n.t("customer.specialSubtypes.bed_bugs") },
+    { id: "fleas", label: i18n.t("customer.specialSubtypes.fleas") },
+    { id: "plant_protection", label: i18n.t("customer.specialSubtypes.plant_protection") },
+    { id: "palm_weevil", label: i18n.t("customer.specialSubtypes.palm_weevil") },
+    { id: "other", label: i18n.t("customer.specialSubtypes.other") },
   ];
 
   /* =========================
@@ -97,7 +102,7 @@ export default function SpecialServicesScreen({
   };
 
   const getServiceDisplayLabel = () => {
-    if (!serviceType) return "Special Service";
+    if (!serviceType) return i18n.t("serviceTypes.special");
     
     const mainService = mainServiceTypes.find(s => s.id === serviceType);
     
@@ -110,31 +115,31 @@ export default function SpecialServicesScreen({
       if (specialSubtype === "other") {
         // When it's "other", check if we have a custom pest name
         if (otherPestName && otherPestName.trim() !== "") {
-          return `Special Service - ${otherPestName.trim()}`;
+          return `${i18n.t("serviceTypes.special")} - ${otherPestName.trim()}`;
         } else {
-          return "Special Service - Other";
+          return `${i18n.t("serviceTypes.special")} - ${i18n.t("customer.specialSubtypes.other")}`;
         }
       }
       
       const subtype = specialServiceSubtypes.find(s => s.id === specialSubtype);
       if (subtype) {
-        return `Special Service - ${subtype.label}`;
+        return `${i18n.t("serviceTypes.special")} - ${subtype.label}`;
       } else {
-        return `Special Service - ${specialSubtype}`;
+        return `${i18n.t("serviceTypes.special")} - ${specialSubtype}`;
       }
     } else {
       // No subtype specified
-      return "Special Service";
+      return i18n.t("serviceTypes.special");
     }
   };
 
   const getSimpleServiceLabel = () => {
-    if (!serviceType) return "Not specified";
+    if (!serviceType) return i18n.t("technician.common.notSpecified") || "Not specified";
     
     if (serviceType === "special" && specialSubtype) {
       if (specialSubtype === "other") {
         // For simple label, return the pest name if available
-        return otherPestName || "Other";
+        return otherPestName || i18n.t("customer.specialSubtypes.other");
       }
       
       const subtype = specialServiceSubtypes.find(s => s.id === specialSubtype);
@@ -150,9 +155,9 @@ export default function SpecialServicesScreen({
     const h = Math.floor(total / 3600);
     const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
-    if (h) return `${h}h ${m}m ${s}s`;
-    if (m) return `${m}m ${s}s`;
-    return `${s}s`;
+    if (h) return `${h}${i18n.t("technician.common.hours")} ${m}${i18n.t("technician.common.minutes")} ${s}${i18n.t("technician.common.seconds")}`;
+    if (m) return `${m}${i18n.t("technician.common.minutes")} ${s}${i18n.t("technician.common.seconds")}`;
+    return `${s}${i18n.t("technician.common.seconds")}`;
   };
 
   /* =========================
@@ -318,6 +323,25 @@ export default function SpecialServicesScreen({
                 
                 setLogId(extractedLogId);
                 setVisitId(extractedLogId);
+                // LOAD EXISTING IMAGES
+                if (log?.images && Array.isArray(log.images)) {
+                  console.log("📸 Raw images from log:", log.images);
+                  
+                  // Clean and normalize image filenames
+                  const cleaned = log.images
+                    .map(img => {
+                      if (!img) return null;
+                      // Convert to string and clean
+                      let v = String(img).split("?")[0].trim();
+                      // Extract just the filename if it's a full URL
+                      if (v.includes("/")) v = v.substring(v.lastIndexOf("/") + 1);
+                      return v;
+                    })
+                    .filter(Boolean);
+                  
+                  console.log("📸 Cleaned images for display:", cleaned);
+                  setExistingImages(cleaned);
+                }
                 
                 // Normalize chemicals
                 const chemicalsFromLog = log.chemicalsUsed || log.chemicals_used || [];
@@ -382,7 +406,10 @@ export default function SpecialServicesScreen({
 
       } catch (error) {
         console.error("❌ Failed to load initial service data:", error);
-        Alert.alert("Error", "Failed to load service details. Please try again.");
+        Alert.alert(
+          i18n.t("technician.common.error"), 
+          i18n.t("technician.specialServices.errors.saveFailed") || "Failed to load service details. Please try again."
+        );
       } finally {
         setLoading(false);
       }
@@ -558,9 +585,9 @@ export default function SpecialServicesScreen({
 
   const showStartServiceAlert = () => {
     Alert.alert(
-      "Start Service Required",
-      "Please start the service before entering data.",
-      [{ text: "OK" }]
+      i18n.t("technician.specialServices.alerts.startServiceRequired"),
+      i18n.t("technician.specialServices.alerts.startServiceMessage"),
+      [{ text: i18n.t("technician.common.ok") }]
     );
   };
 
@@ -568,7 +595,7 @@ export default function SpecialServicesScreen({
      TIMER
   ========================= */
   useEffect(() => {
-    if (serviceStarted && !serviceCompleted) {
+    if (serviceStarted && !serviceCompleted && storedDuration === null) {
       timerRef.current = setInterval(() => {
         if (serviceStartTime) {
           setElapsedTime(Date.now() - serviceStartTime);
@@ -576,7 +603,7 @@ export default function SpecialServicesScreen({
       }, 1000);
       return () => clearInterval(timerRef.current);
     }
-  }, [serviceStarted, serviceCompleted, serviceStartTime]);
+  }, [serviceStarted, serviceCompleted, serviceStartTime, storedDuration]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -618,15 +645,15 @@ export default function SpecialServicesScreen({
   const startService = () => {
     if (session?.status === "completed" && session?.visitId) {
       Alert.alert(
-        "Edit Service",
-        "This service has already been completed. You can edit the data, but the timer will not restart.",
+        i18n.t("technician.specialServices.alerts.editMode"),
+        i18n.t("technician.specialServices.alerts.editModeMessage"),
         [
           { 
-            text: "Cancel", 
+            text: i18n.t("common.cancel"), 
             style: "cancel" 
           },
           { 
-            text: "Edit Service", 
+            text: i18n.t("technician.specialServices.actionButtons.updateService"), 
             style: "default",
             onPress: () => {
               setServiceStarted(true);
@@ -636,8 +663,9 @@ export default function SpecialServicesScreen({
                 setServiceStartTime(Date.now() - 3600000);
               }
               
-              Alert.alert('Edit Mode', 
-                'You are now editing the completed service.'
+              Alert.alert(
+                i18n.t("technician.specialServices.alerts.editMode"),
+                i18n.t("technician.specialServices.alerts.editModeMessage")
               );
             }
           }
@@ -649,12 +677,12 @@ export default function SpecialServicesScreen({
     // Validate for special services
     if (serviceType === "special" && !specialSubtype) {
       Alert.alert(
-        "Service Type Incomplete",
-        "This special service appointment doesn't have a specific service type specified. Please contact admin or specify what service to perform in the notes.",
+        i18n.t("technician.common.warning") || "Service Type Incomplete",
+        i18n.t("technician.specialServices.warning.noServiceType"),
         [
-          { text: "Cancel", style: "cancel" },
+          { text: i18n.t("common.cancel"), style: "cancel" },
           { 
-            text: "Continue Anyway", 
+            text: i18n.t("technician.common.continue") || "Continue Anyway", 
             onPress: () => {
               proceedWithServiceStart();
             }
@@ -667,6 +695,72 @@ export default function SpecialServicesScreen({
     proceedWithServiceStart();
   };
 
+  const openImageChooser = () => {
+    Alert.alert(
+      i18n.t("technician.specialServices.photoUpload.add") || "Add Photo",
+      i18n.t("common.chooseOption") || "Choose image source",
+      [
+        {
+          text: i18n.t("components.chemicalsDropdown.camera") || "Camera",
+          onPress: () => {
+            launchCamera(
+              {
+                mediaType: "photo",
+                quality: 0.7,
+                saveToPhotos: true,
+              },
+              (response) => {
+                if (response.didCancel || response.errorCode) return;
+
+                if (response.assets && response.assets.length > 0) {
+                  setReportImages((prev) => [...prev, ...response.assets]);
+                }
+              }
+            );
+          },
+        },
+        {
+          text: i18n.t("components.chemicalsDropdown.gallery") || "Gallery",
+          onPress: () => {
+            launchImageLibrary(
+              {
+                mediaType: "photo",
+                selectionLimit: 10,
+                quality: 0.7,
+              },
+              (response) => {
+                if (response.didCancel || response.errorCode) return;
+
+                if (response.assets && response.assets.length > 0) {
+                  setReportImages((prev) => [...prev, ...response.assets]);
+                }
+              }
+            );
+          },
+        },
+        { text: i18n.t("common.cancel"), style: "cancel" },
+      ]
+    );
+  };
+
+  const buildImageUrl = (img) => {
+    if (!img) return null;
+
+    let value = String(img).trim().replace(/[{}"]/g, "");
+
+    // remove query strings
+    value = value.split("?")[0];
+
+    // if contains full URL keep only filename
+    if (value.includes("/")) {
+      value = value.substring(value.lastIndexOf("/") + 1);
+    }
+
+    const base = apiService.API_BASE_URL.replace("/api", "");
+
+    return `${base}/uploads/${value}`;
+  };
+
   const proceedWithServiceStart = () => {
     const start = Date.now();
     setServiceStartTime(start);
@@ -674,8 +768,12 @@ export default function SpecialServicesScreen({
     setServiceCompleted(false);
     setHasGeneratedReport(false);
     
-    Alert.alert('Service Started', 
-      `${getSimpleServiceLabel()} service started for ${customer?.customerName || 'customer'}`
+    Alert.alert(
+      i18n.t("technician.specialServices.alerts.serviceStarted"),
+      i18n.t("technician.specialServices.alerts.serviceStartedMessage", { 
+        type: getSimpleServiceLabel(), 
+        name: customer?.customerName || i18n.t("technician.common.customer") 
+      })
     );
   };
 
@@ -704,9 +802,9 @@ export default function SpecialServicesScreen({
           // Check if it's a price error
           if (result?.error?.includes('Service price must be set')) {
             Alert.alert(
-              "Price Not Set",
-              "Admin has not set the service price yet. Please contact admin to set the price before completing this appointment.",
-              [{ text: "OK" }]
+              i18n.t("technician.specialServices.alerts.priceNotSet"),
+              i18n.t("technician.specialServices.alerts.priceNotSetMessage"),
+              [{ text: i18n.t("technician.common.ok") }]
             );
           }
         }
@@ -718,7 +816,7 @@ export default function SpecialServicesScreen({
   const completeService = async () => {
     try {
       if (!customer?.customerId || !technician?.id) {
-        throw new Error("Missing customer or technician information");
+        throw new Error(i18n.t("technician.specialServices.errors.missingInfo"));
       }
 
       // Format chemicals
@@ -735,7 +833,6 @@ export default function SpecialServicesScreen({
       
       // Format treated areas
       const formattedTreatedAreas = treatedAreas.map(area => ({
-        ...area,
         id: area.id || `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: area.name || '',
         chemicals: Array.isArray(area.chemicals) ? area.chemicals.map(chem => ({
@@ -747,12 +844,8 @@ export default function SpecialServicesScreen({
             ? `${chem.volume}ml`
             : chem.volume || ''
         })) : [],
-        concentrationPercent: area.concentrationPercent && !area.concentrationPercent.includes('%') 
-          ? `${area.concentrationPercent}%` 
-          : area.concentrationPercent || '',
-        volumeMl: area.volumeMl && !area.volumeMl.includes('ml')
-          ? `${area.volumeMl}ml`
-          : area.volumeMl || '',
+        concentrationPercent: area.concentrationPercent || '',
+        volumeMl: area.volumeMl || '',
         areaNotes: area.areaNotes || ''
       }));
 
@@ -762,9 +855,26 @@ export default function SpecialServicesScreen({
         getStableLogId();
 
       const finalLogId = logId || stableVisitId;
-      setLogId(finalLogId);
-      setVisitId(stableVisitId);
+      
+      // Calculate duration with fallbacks
+      let durationSeconds = 0;
+      
+      if (serviceStartTime) {
+        const now = Date.now();
+        const startTime = serviceStartTime;
+        const diffMs = now - startTime;
+        durationSeconds = Math.floor(diffMs / 1000);
+        console.log(`⏱ Calculated duration: ${diffMs}ms → ${durationSeconds}s`);
+      } else {
+        durationSeconds = 3600; // Default to 1 hour
+        console.log("⚠️ No start time, using default duration: 3600s");
+      }
+      
+      if (isNaN(durationSeconds) || durationSeconds <= 0) {
+        durationSeconds = 3600;
+      }
 
+      // 🔥 CRITICAL: Use snake_case for chemicals_used and treated_areas
       const payload = {
         logId: finalLogId,
         visitId: stableVisitId,
@@ -775,11 +885,21 @@ export default function SpecialServicesScreen({
         serviceType: serviceType,
         serviceSubtype: serviceType === 'special' ? specialSubtype : null,
         otherPestName: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
-        serviceStartTime: new Date(serviceStartTime).toISOString(),
+        
+        // Send service details in all formats
+        otherPestName: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+        other_pest_name: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+        details: serviceType === 'special' ? 
+          (specialSubtype === 'other' ? otherPestName : specialSubtype) : null,
+        
+        serviceStartTime: serviceStartTime ? new Date(serviceStartTime).toISOString() : new Date().toISOString(),
         serviceEndTime: new Date().toISOString(),
-        duration: Date.now() - serviceStartTime,
-        chemicalsUsed: formattedChemicals,
-        treatedAreas: formattedTreatedAreas,
+        duration: durationSeconds,
+        
+        // 🔥 CHANGE: Use snake_case
+        chemicals_used: formattedChemicals,
+        treated_areas: formattedTreatedAreas,
+        
         notes: notes || '',
         completedAt: new Date().toISOString(),
       };
@@ -787,41 +907,70 @@ export default function SpecialServicesScreen({
       console.log("📤 Completing service with payload:", {
         customerId: payload.customerId,
         technicianId: payload.technicianId,
-        chemicalsCount: payload.chemicalsUsed.length,
-        areasCount: payload.treatedAreas.length,
+        chemicalsCount: payload.chemicals_used.length,
+        areasCount: payload.treated_areas.length,
         logId: payload.logId,
         visitId: payload.visitId,
         serviceType: payload.serviceType,
-        specialSubtype: payload.serviceSubtype
+        specialSubtype: payload.serviceSubtype,
+        duration: payload.duration
       });
 
-      const res = await apiService.logService(payload);
-      if (!res?.success) throw new Error('Save failed');
+      const formData = new FormData();
+
+      // 🔥 FIX: Properly stringify arrays/objects
+      Object.keys(payload).forEach(key => {
+        const value = payload[key];
+        if (value === undefined) return;
+
+        if (key === 'chemicals_used' || key === 'treated_areas') {
+          formData.append(key, JSON.stringify(value));
+        } else if (typeof value === "object" && value !== null) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+
+      // append images
+      reportImages.forEach((img, index) => {
+        formData.append("images", {
+          uri: img.uri,
+          name: img.fileName || `photo_${index}.jpg`,
+          type: img.type || "image/jpeg",
+        });
+      });
+      
+      if (existingImages.length > 0) {
+        formData.append("existingImages", JSON.stringify(existingImages));
+      }
+
+      const res = await apiService.submitServiceLog(formData);
+
+      if (!res?.success) throw new Error(i18n.t("technician.specialServices.errors.saveFailed"));
 
       // Mark appointment as completed
       if (session?.appointmentId) {
         await markAppointmentCompleted(session.appointmentId, payload.visitId);
       }
 
+      setLogId(finalLogId);
+      setVisitId(stableVisitId);
       setServiceCompleted(true);
       setHasGeneratedReport(false);
       
       Alert.alert(
-        'Service Completed', 
-        'Data saved successfully.\n\nYou can now generate a report.',
-        [
-          { 
-            text: "OK",
-            onPress: () => {
-              // User can now generate report
-            }
-          }
-        ]
+        i18n.t("technician.specialServices.alerts.serviceCompleted"),
+        i18n.t("technician.specialServices.alerts.serviceCompletedMessage"),
+        [{ text: i18n.t("technician.common.ok") }]
       );
       
     } catch (e) {
       console.error("❌ Complete service error:", e);
-      Alert.alert('Error', e.message);
+      Alert.alert(
+        i18n.t("technician.common.error"), 
+        e.message || i18n.t("technician.specialServices.errors.saveFailed")
+      );
     }
   };
 
@@ -830,13 +979,16 @@ export default function SpecialServicesScreen({
       console.log("🔄 Updating service...");
       
       if (!customer?.customerId || !technician?.id) {
-        throw new Error("Missing customer or technician information");
+        throw new Error(i18n.t("technician.specialServices.errors.missingInfo"));
       }
       
       const stableLogId = logId || visitId || session?.visitId || getStableLogId();
       
       if (!stableLogId) {
-        Alert.alert("Error", "Missing service ID. Cannot update.");
+        Alert.alert(
+          i18n.t("technician.common.error"), 
+          i18n.t("technician.specialServices.errors.missingServiceId") || "Missing service ID. Cannot update."
+        );
         return;
       }
       
@@ -854,30 +1006,46 @@ export default function SpecialServicesScreen({
       }).filter(chem => chem.name);
     
       const formattedTreatedAreas = treatedAreas.map(area => ({
-        ...area,
         id: area.id || `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: area.name || '',
         chemicals: Array.isArray(area.chemicals) ? area.chemicals.map(chem => ({
-          name: chem.name || chem.chemicalName || '',
-          concentration: chem.concentration && !chem.concentration.includes('%') 
-            ? `${chem.concentration}%` 
-            : chem.concentration || '',
-          volume: chem.volume && !chem.volume.includes('ml')
-            ? `${chem.volume}ml`
-            : chem.volume || ''
+          name: chem.name || '',
+          concentration: chem.concentration || '',
+          volume: chem.volume || ''
         })) : [],
-        concentrationPercent: area.concentrationPercent && !area.concentrationPercent.includes('%') 
-          ? `${area.concentrationPercent}%` 
-          : area.concentrationPercent || '',
-        volumeMl: area.volumeMl && !area.volumeMl.includes('ml')
-          ? `${area.volumeMl}ml`
-          : area.volumeMl || '',
+        concentrationPercent: area.concentrationPercent || '',
+        volumeMl: area.volumeMl || '',
         areaNotes: area.areaNotes || ''
       }));
       
       const effectiveStartTime = serviceStartTime || Date.now() - 3600000;
       const stableVisitId = visitId || session?.visitId || stableLogId;
       
+      // Calculate duration with fallbacks
+      let durationSeconds = 0;
+      
+      if (storedDuration && !isNaN(storedDuration) && storedDuration > 0) {
+        durationSeconds = Number(storedDuration);
+        console.log("✅ Using storedDuration:", durationSeconds);
+      } else if (serviceStartTime) {
+        const now = Date.now();
+        const startTimeMs = typeof serviceStartTime === 'number' 
+          ? serviceStartTime 
+          : new Date(serviceStartTime).getTime();
+        
+        if (!isNaN(startTimeMs) && startTimeMs > 0) {
+          const diffMs = now - startTimeMs;
+          durationSeconds = Math.floor(diffMs / 1000);
+        }
+      }
+      
+      if (!durationSeconds || isNaN(durationSeconds) || durationSeconds <= 0) {
+        durationSeconds = 3600;
+      }
+      
+      durationSeconds = Number(durationSeconds);
+      
+      // 🔥 CRITICAL: Use snake_case for chemicals_used and treated_areas
       const payload = {
         logId: stableLogId,
         visitId: stableVisitId,
@@ -888,13 +1056,17 @@ export default function SpecialServicesScreen({
 
         serviceType: serviceType,
         serviceSubtype: serviceType === 'special' ? specialSubtype : null,
-        otherPestName:
-          serviceType === 'special' && specialSubtype === 'other'
-            ? otherPestName
-            : null,
+        otherPestName: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+        other_pest_name: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+        
         serviceStartTime: new Date(effectiveStartTime).toISOString(),
-        chemicalsUsed: formattedChemicals,
-        treatedAreas: formattedTreatedAreas,
+        serviceEndTime: new Date().toISOString(),
+        duration: durationSeconds,
+        
+        // 🔥 CHANGE: Use snake_case
+        chemicals_used: formattedChemicals,
+        treated_areas: formattedTreatedAreas,
+        
         notes: notes || '',
         updatedAt: new Date().toISOString(),
       };
@@ -905,14 +1077,47 @@ export default function SpecialServicesScreen({
         serviceType: payload.serviceType,
         visitId: payload.visitId,
         logId: payload.logId,
-        chemicalsCount: payload.chemicalsUsed.length,
-        areasCount: payload.treatedAreas.length
+        chemicalsCount: payload.chemicals_used.length,
+        areasCount: payload.treated_areas.length,
+        duration: payload.duration
       });
       
-      const res = await apiService.logService(payload);
+      const formData = new FormData();
+
+      // 🔥 FIX: Properly stringify arrays/objects
+      Object.keys(payload).forEach(key => {
+        const value = payload[key];
+        if (value === undefined) return;
+
+        if (key === 'chemicals_used' || key === 'treated_areas') {
+          formData.append(key, JSON.stringify(value));
+          console.log(`📦 Appended ${key} as JSON string length:`, JSON.stringify(value).length);
+        } else if (key === 'duration') {
+          formData.append(key, String(value));
+        } else if (typeof value === "object" && value !== null) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+
+      // append images
+      reportImages.forEach((img, index) => {
+        formData.append("images", {
+          uri: img.uri,
+          name: img.fileName || `photo_${index}.jpg`,
+          type: img.type || "image/jpeg",
+        });
+      });
+      
+      if (existingImages.length > 0) {
+        formData.append("existingImages", JSON.stringify(existingImages));
+      }
+
+      const res = await apiService.submitServiceLog(formData);
       
       if (!res?.success) {
-        throw new Error(res?.error || 'Update failed');
+        throw new Error(res?.error || i18n.t("technician.specialServices.errors.updateFailed"));
       }
       
       console.log("✅ Service update successful");
@@ -929,12 +1134,11 @@ export default function SpecialServicesScreen({
       }
       
       Alert.alert(
-        'Service Updated', 
-        'Data saved successfully!\n\n' +
-        'You will be navigated to Report Screen automatically.',
+        i18n.t("technician.specialServices.alerts.serviceUpdated"),
+        i18n.t("technician.specialServices.alerts.serviceUpdatedMessage"),
         [
           { 
-            text: 'OK', 
+            text: i18n.t("technician.common.ok"), 
             onPress: () => {
               const updatedContext = buildReportContext(stableVisitId);
               onGenerateReport({
@@ -949,7 +1153,10 @@ export default function SpecialServicesScreen({
       
     } catch (e) {
       console.error("❌ Update service error:", e);
-      Alert.alert('Error', e.message || 'Failed to update service');
+      Alert.alert(
+        i18n.t("technician.common.error"), 
+        e.message || i18n.t("technician.specialServices.errors.updateFailed")
+      );
     }
   };
 
@@ -961,18 +1168,29 @@ export default function SpecialServicesScreen({
       console.warn("⚠️ No visitId available for report context");
     }
     
+    // Get service details
+    const serviceDetails = serviceType === 'special' ? 
+      (specialSubtype === 'other' ? otherPestName : specialSubtype) : null;
+    
     return {
       date: date.toLocaleDateString(),
-      duration: formatTime(elapsedTime),
-      customerName: customer?.customerName || 'Unknown Customer',
-      technicianName: technician ? `${technician.firstName} ${technician.lastName}` : 'Unknown Technician',
+      duration: formatTime(
+        storedDuration !== null ? storedDuration * 1000 : elapsedTime
+      ),
+      customerName: customer?.customerName || i18n.t("technician.common.unknown") || 'Unknown Customer',
+      technicianName: technician ? `${technician.firstName} ${technician.lastName}` : i18n.t("technician.common.unknown") || 'Unknown Technician',
       serviceType: serviceType,
       serviceTypeName: getServiceDisplayLabel(),
       serviceSubtype: serviceType === 'special' ? specialSubtype : null,
       otherPestName: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+      other_pest_name: serviceType === 'special' && specialSubtype === 'other' ? otherPestName : null,
+      details: serviceDetails,
       visitId: effectiveVisitId,
-      chemicalsUsed: selectedChemicals,
-      treatedAreas: treatedAreas,
+      
+      // 🔥 CHANGE: Use snake_case
+      chemicals_used: selectedChemicals,
+      treated_areas: treatedAreas,
+      
       notes: notes,
       serviceStartTime: serviceStartTime ? new Date(serviceStartTime).toISOString() : null,
       serviceEndTime: new Date().toISOString(),
@@ -987,15 +1205,15 @@ export default function SpecialServicesScreen({
 
   const cancelWork = () => {
     Alert.alert(
-      "Cancel Service",
-      "Are you sure you want to cancel this service? All unsaved data will be lost.",
+      i18n.t("technician.specialServices.alerts.cancelServiceConfirm"),
+      i18n.t("technician.specialServices.alerts.unsavedChangesMessage"),
       [
         { 
-          text: "No, Continue", 
+          text: i18n.t("technician.specialServices.alerts.continueService"), 
           style: "cancel" 
         },
         { 
-          text: "Yes, Cancel", 
+          text: i18n.t("technician.specialServices.alerts.cancelServiceConfirm"), 
           style: "destructive",
           onPress: () => {
             if (timerRef.current) {
@@ -1013,9 +1231,9 @@ export default function SpecialServicesScreen({
             setHasGeneratedReport(false);
             
             Alert.alert(
-              "Service Cancelled", 
-              "Service cancelled. No data was saved.",
-              [{ text: "OK" }]
+              i18n.t("technician.specialServices.alerts.serviceCancelled"),
+              i18n.t("technician.specialServices.alerts.serviceCancelledMessage"),
+              [{ text: i18n.t("technician.common.ok") }]
             );
           }
         }
@@ -1038,12 +1256,12 @@ export default function SpecialServicesScreen({
                 onBack();
               } else if (serviceStarted) {
                 Alert.alert(
-                  "Unsaved Changes",
-                  "You have an active service. Do you want to cancel it?",
+                  i18n.t("technician.specialServices.alerts.unsavedChanges"),
+                  i18n.t("technician.specialServices.alerts.unsavedChangesMessage"),
                   [
-                    { text: "Continue Service", style: "cancel" },
+                    { text: i18n.t("technician.specialServices.alerts.continueService"), style: "cancel" },
                     { 
-                      text: "Cancel Service", 
+                      text: i18n.t("technician.specialServices.alerts.cancelServiceConfirm"), 
                       style: "destructive",
                       onPress: () => {
                         cancelWork();
@@ -1058,7 +1276,7 @@ export default function SpecialServicesScreen({
             }}
           >
             <MaterialIcons name="arrow-back" size={24} color="#fff" />
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{i18n.t("technician.common.back")}</Text>
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
@@ -1066,7 +1284,9 @@ export default function SpecialServicesScreen({
               {getServiceDisplayLabel()}
             </Text>
             <Text style={styles.headerSubtitle}>
-              {serviceStarted ? 'Service in Progress' : 'Service Setup'}
+              {serviceStarted 
+                ? i18n.t("technician.specialServices.serviceInProgress")
+                : i18n.t("technician.specialServices.serviceSetup")}
             </Text>
           </View>
 
@@ -1075,7 +1295,7 @@ export default function SpecialServicesScreen({
             onPress={onNavigate}
           >
             <MaterialIcons name="navigation" size={20} color="#fff" />
-            <Text style={styles.navigateText}>Navigate</Text>
+            <Text style={styles.navigateText}>{i18n.t("technician.common.navigate")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1089,7 +1309,10 @@ export default function SpecialServicesScreen({
                 const visitIdToLoad = visitId || session?.visitId;
                 
                 if (!visitIdToLoad) {
-                  Alert.alert('Error', 'No visit ID found to load data');
+                  Alert.alert(
+                    i18n.t("technician.common.error"), 
+                    i18n.t("technician.specialServices.errors.noVisitId")
+                  );
                   return;
                 }
                 
@@ -1116,20 +1339,29 @@ export default function SpecialServicesScreen({
                   const areasFromLog = log.treatedAreas || log.treated_areas || [];
                   setTreatedAreas(areasFromLog);
                   
-                  Alert.alert('Success', 'Service data loaded successfully');
+                  Alert.alert(
+                    i18n.t("technician.common.success"), 
+                    i18n.t("technician.specialServices.alerts.serviceUpdated") || "Service data loaded successfully"
+                  );
                 } else {
-                  Alert.alert('Error', 'No data found for this service');
+                  Alert.alert(
+                    i18n.t("technician.common.error"), 
+                    i18n.t("technician.specialServices.errors.noDataFound")
+                  );
                 }
               } catch (error) {
                 console.error("Failed to load data:", error);
-                Alert.alert('Error', 'Failed to load service data');
+                Alert.alert(
+                  i18n.t("technician.common.error"), 
+                  i18n.t("technician.specialServices.errors.noDataFound")
+                );
               } finally {
                 setLoading(false);
               }
             }}
           >
             <MaterialIcons name="cloud-download" size={20} color="#fff" />
-            <Text style={styles.secondaryButtonText}>Load Service Data</Text>
+            <Text style={styles.secondaryButtonText}>{i18n.t("technician.specialServices.actionButtons.loadData") || "Load Service Data"}</Text>
           </TouchableOpacity>
         )}
 
@@ -1151,7 +1383,7 @@ export default function SpecialServicesScreen({
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <MaterialIcons name="person" size={20} color="#1f9c8b" />
-            <Text style={styles.cardTitle}>Customer Information</Text>
+            <Text style={styles.cardTitle}>{i18n.t("technician.specialServices.customerInfo")}</Text>
           </View>
           
           <View style={styles.customerInfo}>
@@ -1160,28 +1392,31 @@ export default function SpecialServicesScreen({
             <View style={styles.infoRow}>
               <MaterialIcons name="schedule" size={16} color="#666" />
               <Text style={styles.infoText}>
-                Appointment: {session?.appointmentTime || 'N/A'}
+                {i18n.t("technician.specialServices.appointment", { time: session?.appointmentTime || 'N/A' })}
               </Text>
             </View>
             
             <View style={styles.infoRow}>
               <MaterialIcons name="person-pin" size={16} color="#666" />
               <Text style={styles.infoText}>
-                Technician: {technician?.firstName} {technician?.lastName}
+                {i18n.t("technician.specialServices.technician", { 
+                  firstName: technician?.firstName, 
+                  lastName: technician?.lastName 
+                })}
               </Text>
             </View>
             
             <View style={styles.infoRow}>
               <MaterialIcons name="location-on" size={16} color="#666" />
               <Text style={styles.infoText}>
-                {customer?.address || 'No address available'}
+                {customer?.address || i18n.t("technician.common.noAddress") || 'No address available'}
               </Text>
             </View>
             
             <View style={styles.infoRow}>
               <MaterialIcons name="medical-services" size={16} color="#666" />
               <Text style={styles.serviceTypeText}>
-                Service: <Text style={styles.serviceTypeValue}>{getServiceDisplayLabel()}</Text>
+                {i18n.t("technician.specialServices.service")} <Text style={styles.serviceTypeValue}>{getServiceDisplayLabel()}</Text>
               </Text>
             </View>
           </View>
@@ -1191,8 +1426,7 @@ export default function SpecialServicesScreen({
             <View style={styles.warningCard}>
               <MaterialIcons name="warning" size={20} color="#ff9800" />
               <Text style={styles.warningText}>
-                This special service appointment doesn't have a specific service type. 
-                Please contact admin or specify the service to perform in your notes below.
+                {i18n.t("technician.specialServices.warning.noServiceType")}
               </Text>
             </View>
           )}
@@ -1201,7 +1435,7 @@ export default function SpecialServicesScreen({
         {/* SERVICE STATUS INDICATOR */}
         {serviceStarted && (
           <View style={styles.statusCard}>
-            <Text style={styles.sectionTitle}>Service Progress</Text>
+            <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.serviceProgress")}</Text>
             <View style={styles.progressContainer}>
               <View style={styles.progressStep}>
                 <View style={[
@@ -1215,7 +1449,7 @@ export default function SpecialServicesScreen({
                 <Text style={[
                   styles.progressLabel,
                   serviceStarted && styles.progressLabelActive
-                ]}>Started</Text>
+                ]}>{i18n.t("technician.specialServices.progress.started")}</Text>
               </View>
               
               <View style={[
@@ -1235,7 +1469,7 @@ export default function SpecialServicesScreen({
                 <Text style={[
                   styles.progressLabel,
                   serviceCompleted && styles.progressLabelActive
-                ]}>Completed</Text>
+                ]}>{i18n.t("technician.specialServices.progress.completed")}</Text>
               </View>
             </View>
           </View>
@@ -1245,7 +1479,7 @@ export default function SpecialServicesScreen({
         <View style={styles.sectionContainer}>
           <View style={styles.sectionTitleContainer}>
             <MaterialIcons name="science" size={20} color="#1f9c8b" />
-            <Text style={styles.sectionTitle}>Chemicals Used</Text>
+            <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.chemicalsUsed")}</Text>
           </View>
           
           <View style={[
@@ -1256,7 +1490,10 @@ export default function SpecialServicesScreen({
               selectedChemicals={selectedChemicals}
               onChemicalsChange={(newChemicals) => {
                 if (!serviceStarted) {
-                  Alert.alert("Start Service Required", "Please start the service before selecting chemicals.");
+                  Alert.alert(
+                    i18n.t("technician.specialServices.alerts.startServiceRequired"),
+                    i18n.t("technician.specialServices.alerts.startServiceMessage")
+                  );
                   return;
                 }
                 setSelectedChemicals(newChemicals);
@@ -1265,7 +1502,7 @@ export default function SpecialServicesScreen({
               editable={serviceStarted}
             />
             {!serviceStarted && (
-              <Text style={styles.disabledHint}>Start service to enable</Text>
+              <Text style={styles.disabledHint}>{i18n.t("technician.specialServices.startHint")}</Text>
             )}
           </View>
         </View>
@@ -1274,7 +1511,7 @@ export default function SpecialServicesScreen({
         <View style={styles.sectionContainer}>
           <View style={styles.sectionTitleContainer}>
             <MaterialIcons name="layers" size={20} color="#1f9c8b" />
-            <Text style={styles.sectionTitle}>Treated Areas</Text>
+            <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.treatedAreas")}</Text>
           </View>
 
           {/* Add Area Input */}
@@ -1284,7 +1521,7 @@ export default function SpecialServicesScreen({
                 styles.areaInput,
                 !serviceStarted && styles.disabledInput
               ]}
-              placeholder="Enter area name (e.g. Bathroom)"
+              placeholder={i18n.t("technician.specialServices.areaPlaceholder")}
               placeholderTextColor="#999"
               value={areaNameInput}
               onChangeText={setAreaNameInput}
@@ -1314,7 +1551,7 @@ export default function SpecialServicesScreen({
               }}
             >
               <MaterialIcons name="add" size={20} color="#fff" />
-              <Text style={styles.addAreaButtonText}>Add</Text>
+              <Text style={styles.addAreaButtonText}>{i18n.t("technician.specialServices.add")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1339,7 +1576,7 @@ export default function SpecialServicesScreen({
                   }}
                 >
                   <MaterialIcons name="info-outline" size={20} color="#fff" />
-                  <Text style={styles.areaActionText}>Details</Text>
+                  <Text style={styles.areaActionText}>{i18n.t("technician.specialServices.areaDetails.title")}</Text>
                 </TouchableOpacity>
               )}
             >
@@ -1356,7 +1593,7 @@ export default function SpecialServicesScreen({
                   {a.chemicals && a.chemicals.length > 0 ? (
                     <View style={styles.areaChemicalsPreview}>
                       <Text style={styles.areaChemicalsCount}>
-                        {a.chemicals.length} chemical{a.chemicals.length > 1 ? 's' : ''} used
+                        {a.chemicals.length} {i18n.t("technician.specialServices.chemicalsInArea")} {a.chemicals.length > 1 ? 's' : ''}
                       </Text>
                       <Text style={styles.areaChemicalsList}>
                         {a.chemicals.slice(0, 2).map(c => c.name).join(', ')}
@@ -1365,7 +1602,7 @@ export default function SpecialServicesScreen({
                     </View>
                   ) : (
                     <Text style={styles.noChemicalsText}>
-                      No chemicals added yet
+                      {i18n.t("technician.specialServices.noChemicals")}
                     </Text>
                   )}
                 </View>
@@ -1375,11 +1612,123 @@ export default function SpecialServicesScreen({
           ))}
         </View>
 
+        {/* PHOTO UPLOAD */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionTitleContainer}>
+            <MaterialIcons name="add-a-photo" size={20} color="#1f9c8b" />
+            <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.treatmentPhotos")}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={{ marginBottom: 20, marginTop: 20,alignItems: "flex-start" }}
+            onPress={() => {
+              if (!serviceStarted) {
+                showStartServiceAlert();
+                return;
+              }
+              openImageChooser();
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="add-a-photo"
+              size={30}
+              color={serviceStarted ? "#1f9c8b" : "#ccc"}
+            />
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 14,
+                fontWeight: "600",
+                color: serviceStarted ? "#1f9c8b" : "#999",
+              }}
+            >
+              {reportImages.length > 0 
+                ? i18n.t("technician.specialServices.photoUpload.addMore")
+                : i18n.t("technician.specialServices.photoUpload.add")}
+            </Text>
+          </TouchableOpacity>
+
+          {(existingImages.length > 0 || reportImages.length > 0) && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {/* EXISTING IMAGES - FIXED */}
+            {existingImages.map((img, index) => {
+              // Build the full URL for the image
+              const imageUrl = buildImageUrl(img);
+              console.log(`📸 Rendering existing image ${index}:`, { img, imageUrl });
+              
+              return (
+                <View key={`existing-${index}`} style={{ marginRight: 10, position: "relative" }}>
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={{ width: 120, height: 120, borderRadius: 10 }}
+                    resizeMode="cover"
+                    onError={(e) => console.log(`❌ Image load error for ${img}:`, e.nativeEvent.error)}
+                  />
+
+                  <TouchableOpacity
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -6,
+                      backgroundColor: "#e74c3c",
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onPress={() => {
+                      const updated = existingImages.filter((_, i) => i !== index);
+                      setExistingImages(updated);
+                    }}
+                  >
+                    <MaterialIcons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            {/* NEW IMAGES */}
+            {reportImages.map((img, index) => (
+              <View key={`new-${index}`} style={{ marginRight: 10, position: "relative" }}>
+                <Image
+                  source={{ uri: img.uri }}
+                  style={{ width: 120, height: 120, borderRadius: 10 }}
+                  resizeMode="cover"
+                />
+
+                <TouchableOpacity
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    backgroundColor: "#e74c3c",
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  onPress={() => {
+                    const updated = reportImages.filter((_, i) => i !== index);
+                    setReportImages(updated);
+                  }}
+                >
+                  <MaterialIcons name="close" size={16} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+          </ScrollView>
+          )}
+        </View>
+
         {/* SERVICE NOTES SECTION */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionTitleContainer}>
             <MaterialIcons name="notes" size={20} color="#1f9c8b" />
-            <Text style={styles.sectionTitle}>Service Notes</Text>
+            <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.serviceNotes")}</Text>
           </View>
           
           <TextInput
@@ -1397,7 +1746,7 @@ export default function SpecialServicesScreen({
               }
               setNotes(text);
             }}
-            placeholder="Enter service notes, observations, or special instructions..."
+            placeholder={i18n.t("technician.specialServices.notesPlaceholder")}
             placeholderTextColor="#999"
             editable={serviceStarted}
           />
@@ -1416,8 +1765,8 @@ export default function SpecialServicesScreen({
               <MaterialIcons name="play-arrow" size={22} color="#fff" />
               <Text style={styles.primaryButtonText}>
                 {(serviceType === "special" && !specialSubtype) 
-                  ? 'Start Service (Type Not Specified)'
-                  : `Start ${getServiceDisplayLabel()} Service`}
+                  ? i18n.t("technician.specialServices.actionButtons.startNoType")
+                  : i18n.t("technician.specialServices.actionButtons.startService", { type: getSimpleServiceLabel() })}
               </Text>
             </TouchableOpacity>
           )}
@@ -1429,7 +1778,7 @@ export default function SpecialServicesScreen({
                 onPress={completeService}
               >
                 <MaterialIcons name="check-circle" size={22} color="#fff" />
-                <Text style={styles.primaryButtonText}>Complete Service</Text>
+                <Text style={styles.primaryButtonText}>{i18n.t("technician.specialServices.actionButtons.completeService")}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -1437,7 +1786,7 @@ export default function SpecialServicesScreen({
                 onPress={cancelWork}
               >
                 <MaterialIcons name="cancel" size={20} color="#fff" />
-                <Text style={styles.cancelButtonText}>Cancel Service</Text>
+                <Text style={styles.cancelButtonText}>{i18n.t("technician.specialServices.actionButtons.cancelService")}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -1449,7 +1798,7 @@ export default function SpecialServicesScreen({
                 onPress={updateService}
               >
                 <MaterialIcons name="edit" size={20} color="#fff" />
-                <Text style={styles.updateButtonText}>Update Service</Text>
+                <Text style={styles.updateButtonText}>{i18n.t("technician.specialServices.actionButtons.updateService")}</Text>
               </TouchableOpacity>
 
               {!hasGeneratedReport && (
@@ -1461,9 +1810,9 @@ export default function SpecialServicesScreen({
                   onPress={() => {
                     if (!visitId && !logId) {
                       Alert.alert(
-                        "Data Not Ready",
-                        "Please wait a moment for the service data to be saved, or tap 'Update Service' first.",
-                        [{ text: "OK" }]
+                        i18n.t("technician.specialServices.alerts.dataNotReady"),
+                        i18n.t("technician.specialServices.alerts.dataNotReadyMessage"),
+                        [{ text: i18n.t("technician.common.ok") }]
                       );
                       return;
                     }
@@ -1482,7 +1831,7 @@ export default function SpecialServicesScreen({
                   disabled={!visitId && !logId}
                 >
                   <MaterialIcons name="description" size={20} color="#fff" />
-                  <Text style={styles.secondaryButtonText}>Generate Report</Text>
+                  <Text style={styles.secondaryButtonText}>{i18n.t("technician.specialServices.actionButtons.generateReport")}</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -1492,10 +1841,10 @@ export default function SpecialServicesScreen({
         {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Pest - Free Technician Portal • Special Services Module
+            {i18n.t("technician.specialServices.footer") || "Pest - Free Technician Portal • Special Services Module"}
           </Text>
           <Text style={styles.footerCopyright}>
-            © {new Date().getFullYear()} All data is securely recorded
+             {i18n.t("technician.home.footer.copyright", { year: new Date().getFullYear() })}
           </Text>
         </View>
       </ScrollView>
@@ -1516,7 +1865,7 @@ export default function SpecialServicesScreen({
                   <MaterialIcons name="close" size={24} color="#666" />
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>
-                  Area Details
+                  {i18n.t("technician.specialServices.areaDetails.title")}
                 </Text>
                 <View style={{ width: 40 }} />
               </View>
@@ -1528,7 +1877,7 @@ export default function SpecialServicesScreen({
                 <View style={styles.areaHeaderCard}>
                   <MaterialIcons name="location-on" size={24} color="#1f9c8b" />
                   <Text style={styles.areaModalName}>
-                    {treatedAreas.find(a => a.id === activeAreaId)?.name || 'Untitled Area'}
+                    {treatedAreas.find(a => a.id === activeAreaId)?.name || i18n.t("technician.common.unknown") || 'Untitled Area'}
                   </Text>
                 </View>
 
@@ -1537,10 +1886,10 @@ export default function SpecialServicesScreen({
                   <View style={styles.referenceSection}>
                     <View style={styles.referenceHeader}>
                       <MaterialIcons name="science" size={18} color="#1f9c8b" />
-                      <Text style={styles.referenceTitle}>Available Chemicals</Text>
+                      <Text style={styles.referenceTitle}>{i18n.t("technician.specialServices.areaDetails.availableChemicals")}</Text>
                     </View>
                     <Text style={styles.referenceSubtitle}>
-                      Tap to add to this area:
+                      {i18n.t("technician.specialServices.areaDetails.tapToAdd")}
                     </Text>
                     <ScrollView 
                       horizontal 
@@ -1594,7 +1943,7 @@ export default function SpecialServicesScreen({
                 <View style={styles.areaChemicalsSection}>
                   <View style={styles.sectionTitleContainer}>
                     <MaterialIcons name="format-list-bulleted" size={18} color="#1f9c8b" />
-                    <Text style={styles.sectionTitle}>Chemicals in this Area</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.chemicalsInArea")}</Text>
                   </View>
                   
                   {(() => {
@@ -1606,10 +1955,10 @@ export default function SpecialServicesScreen({
                         <View style={styles.emptyState}>
                           <MaterialIcons name="science" size={40} color="#e0e0e0" />
                           <Text style={styles.emptyStateText}>
-                            No chemicals added yet
+                            {i18n.t("technician.specialServices.noChemicals")}
                           </Text>
                           <Text style={styles.emptyStateSubtext}>
-                            Tap on a chemical above to add it
+                            {i18n.t("technician.specialServices.areaDetails.tapToAdd")}
                           </Text>
                         </View>
                       );
@@ -1621,7 +1970,7 @@ export default function SpecialServicesScreen({
                           <View style={styles.chemicalNameContainer}>
                             <MaterialIcons name="water-drop" size={16} color="#1f9c8b" />
                             <Text style={styles.chemicalItemName}>
-                              {chemical.name || `Chemical ${chemIndex + 1}`}
+                              {chemical.name || `${i18n.t("technician.specialServices.chemicalsUsed")} ${chemIndex + 1}`}
                             </Text>
                           </View>
                           <TouchableOpacity
@@ -1644,11 +1993,11 @@ export default function SpecialServicesScreen({
                         
                         <View style={styles.chemicalInputsRow}>
                           <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Concentration (%)</Text>
+                            <Text style={styles.inputLabel}>{i18n.t("components.chemicalsDropdown.concentration")}</Text>
                             <View style={styles.inputContainer}>
                               <TextInput
                                 style={styles.chemicalInput}
-                                placeholder="e.g., 10"
+                                placeholder={i18n.t("components.chemicalsDropdown.concentrationPlaceholder")}
                                 value={chemical.concentration?.replace('%', '') || ''}
                                 onChangeText={(text) => {
                                   const currentArea = treatedAreas.find(a => a.id === activeAreaId);
@@ -1672,11 +2021,11 @@ export default function SpecialServicesScreen({
                           </View>
                           
                           <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Volume (ml)</Text>
+                            <Text style={styles.inputLabel}>{i18n.t("components.chemicalsDropdown.volume")}</Text>
                             <View style={styles.inputContainer}>
                               <TextInput
                                 style={styles.chemicalInput}
-                                placeholder="e.g., 500"
+                                placeholder={i18n.t("components.chemicalsDropdown.volumePlaceholder")}
                                 value={chemical.volume?.replace('ml', '') || ''}
                                 onChangeText={(text) => {
                                   const currentArea = treatedAreas.find(a => a.id === activeAreaId);
@@ -1708,11 +2057,11 @@ export default function SpecialServicesScreen({
                 <View style={styles.notesSection}>
                   <View style={styles.sectionTitleContainer}>
                     <MaterialIcons name="notes" size={18} color="#1f9c8b" />
-                    <Text style={styles.sectionTitle}>Area Notes</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t("technician.specialServices.areaDetails.areaNotes")}</Text>
                   </View>
                   <TextInput
                     style={styles.areaNotesInput}
-                    placeholder="Enter area-specific notes, observations, or special instructions..."
+                    placeholder={i18n.t("technician.specialServices.areaDetails.notesPlaceholder")}
                     placeholderTextColor="#999"
                     multiline
                     numberOfLines={4}
@@ -1727,7 +2076,7 @@ export default function SpecialServicesScreen({
                     style={styles.modalCancelButton}
                     onPress={() => setAreaModalVisible(false)}
                   >
-                    <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                    <Text style={styles.modalCancelButtonText}>{i18n.t("technician.specialServices.areaDetails.cancel")}</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
@@ -1765,7 +2114,7 @@ export default function SpecialServicesScreen({
                     }}
                   >
                     <MaterialIcons name="save" size={20} color="#fff" />
-                    <Text style={styles.modalSaveButtonText}>Save Area</Text>
+                    <Text style={styles.modalSaveButtonText}>{i18n.t("technician.specialServices.areaDetails.save")}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -1781,27 +2130,22 @@ export default function SpecialServicesScreen({
       <SafeAreaView style={styles.centerContainer}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1f9c8b" />
-          <Text style={styles.loadingText}>Loading service details...</Text>
+          <Text style={styles.loadingText}>{i18n.t("technician.specialServices.loading")}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {!areaModalVisible ? (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ flex: 1 }}>
-            {renderContent()}
-          </View>
-        </TouchableWithoutFeedback>
-      ) : (
-        <View style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           {renderContent()}
-        </View>
-      )}
-    </SafeAreaView>
-  );
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
 }
 
 /* =========================

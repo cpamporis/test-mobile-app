@@ -278,14 +278,52 @@ const apiService = {
   },
 
   // Customer Requests
-  async submitCustomerRequest(requestData) {
+  async submitCustomerRequest(requestData, isMultipart = false) {
     console.log("📤 Submitting customer request:", requestData);
-    
-    const result = await request("POST", "/customer-requests", requestData);
-    
-    console.log("📥 Customer request response:", result);
-    
-    return result;
+
+    try {
+      const headers = {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+      };
+
+      const response = await fetch(`${API_BASE_URL}/customer-requests`, {
+        method: "POST",
+        headers: isMultipart
+          ? headers // DO NOT set Content-Type for multipart
+          : { 
+              ...headers,
+              "Content-Type": "application/json"
+            },
+        body: isMultipart
+          ? requestData
+          : JSON.stringify(requestData)
+      });
+
+      const text = await response.text();
+      let json;
+
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: json?.error || `Request failed with status ${response.status}`
+        };
+      }
+
+      return json || { success: true };
+
+    } catch (error) {
+      console.error("❌ Submit customer request error:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   },
 
   async getCustomerRequests(status = null) {
@@ -483,6 +521,68 @@ async getTodayCustomerRequestsCount() {
     console.warn("⚠️ Unexpected customer stats response format:", res);
     return { stats: [] };
   },
+
+ // In apiService.js - Update submitServiceLog with timeout
+
+  async submitServiceLog(formData) {
+  console.log("📤 Uploading service log with images...");
+
+  try {
+    const headers = {
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+    };
+    // Note: Don't set Content-Type header when using FormData
+    // The browser will set it automatically with the correct boundary
+
+    // Create an AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+    const response = await fetch(`${API_BASE_URL}/service-logs`, {
+      method: "POST",
+      headers, // No Content-Type here - let browser set it
+      body: formData,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const text = await response.text();
+    console.log("📥 Raw response:", text.substring(0, 200));
+    
+    let json;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: json?.error || `Request failed with status ${response.status}`
+      };
+    }
+
+    return json || { success: true };
+
+  } catch (error) {
+    console.error("❌ Service log upload error:", error);
+    
+    // Handle abort/timeout errors
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: "Upload timeout - please try again with fewer or smaller images"
+      };
+    }
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+},
   // CUSTOMERS
   async getCustomers() {
     console.log("🌐 API: Getting customers...");
@@ -1288,76 +1388,37 @@ async getTodayCustomerRequestsCount() {
     console.log("🔍 Fetching service log for visitId:", visitId);
     
     try {
-      // Try the service-logs endpoint first
-      const result = await this.request("GET", `/service-logs/${visitId}`);
-      
-      console.log("📥 Service logs endpoint response:", {
-        success: result?.success,
-        hasLog: !!result?.log,
-        hasReport: !!result?.report,
-        dataType: typeof result
+      const response = await fetch(`${API_BASE_URL}/service-logs/${visitId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
       });
       
-      if (result?.success && result.log) {
-        console.log("✅ Service log found in service-logs endpoint");
-        return result;
+      const text = await response.text();
+      console.log("📥 Raw response:", text.substring(0, 200));
+      
+      let data;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        console.error("❌ Failed to parse response:", e);
+        return { success: false, error: "Invalid response format" };
       }
       
-      console.log("🔄 Trying reports endpoint as fallback...");
-      const reportResult = await this.request("GET", `/reports/visit/${visitId}`);
-      
-      console.log("📥 Reports endpoint response:", {
-        success: reportResult?.success,
-        hasReport: !!reportResult?.report,
-        dataType: typeof reportResult
-      });
-      
-      if (reportResult?.success && reportResult.report) {
-        console.log("✅ Found service log in reports");
+      if (!response.ok) {
         return {
-          success: true,
-          log: reportResult.report,
-          report: reportResult.report
+          success: false,
+          error: data?.error || `HTTP ${response.status}`
         };
       }
       
-      // 🚨 NEW: Try visits endpoint for myocide data
-      console.log("🔄 Trying visits endpoint...");
-      try {
-        const visitResult = await this.request("GET", `/visits/${visitId}`);
-        console.log("📥 Visits endpoint response:", visitResult);
-        
-        if (visitResult?.success && visitResult.visit) {
-          console.log("✅ Found visit data");
-          
-          // Format visit data as a service log
-          const formattedLog = {
-            visit_id: visitResult.visit.id,
-            customer_name: visitResult.visit.customer_name,
-            technician_name: visitResult.visit.technician_name,
-            start_time: visitResult.visit.start_time,
-            duration: visitResult.visit.duration,
-            service_type: 'myocide',
-            work_type: visitResult.visit.work_type,
-            notes: visitResult.visit.notes,
-            created_at: visitResult.visit.created_at,
-            updated_at: visitResult.visit.updated_at
-          };
-          
-          return {
-            success: true,
-            log: formattedLog,
-            report: formattedLog
-          };
-        }
-      } catch (visitError) {
-        console.warn("⚠️ Visits endpoint failed:", visitError.message);
-      }
-      
-      console.log("❌ No service log found for visitId:", visitId);
+      // Ensure data has the expected structure
       return {
-        success: false,
-        error: "Service log not found"
+        success: true,
+        log: data.log || data.report || data,
+        report: data.report || data.log || data
       };
       
     } catch (error) {
@@ -1369,28 +1430,19 @@ async getTodayCustomerRequestsCount() {
     }
   },
 
-  async getCustomerVisitHistory() {
-    console.log("📋 Getting customer visit history...");
-    
-    try {
-      const result = await request("GET", "/customer/visits");
-      
-      console.log("📥 Customer visit history response:", {
-        success: result?.success,
-        count: result?.visits?.length || 0,
-        hasVisits: !!result?.visits
-      });
-      
-      return result;
-    } catch (error) {
-      console.error("❌ Failed to get customer visit history:", error);
-      return {
-        success: false,
-        error: error.message,
-        visits: []
-      };
-    }
-  },
+ async getCustomerVisitHistory() {
+  console.log("📋 Getting customer visit history...");
+  
+  // Use the correct path with /visits prefix
+  const result = await request("GET", "/visits/customer/portal/visits");
+  
+  console.log("📥 Customer visit history response:", {
+    success: result?.success,
+    count: result?.visits?.length || 0
+  });
+  
+  return result;
+},
 
   async getVisitByAppointmentId(appointmentId) {
     console.log("🔍 Resolving visitId for appointmentId:", appointmentId);
