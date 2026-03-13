@@ -1440,11 +1440,7 @@ export default function DisinfectionScreen({
             setNotes('');
             setHasGeneratedReport(false);
             
-            Alert.alert(
-              i18n.t("technician.specialServices.alerts.serviceCancelled") || "Service Cancelled", 
-              i18n.t("technician.specialServices.alerts.serviceCancelledMessage") || "Service cancelled. No data was saved.",
-              [{ text: i18n.t("technician.common.ok") }]
-            );
+            onBack();
           }
         }
       ]

@@ -982,7 +982,7 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
   const [showSelectForPermanentDelete, setShowSelectForPermanentDelete] = useState(false);
   const [deletedCustomers, setDeletedCustomers] = useState([]);
   const [showDeletedCustomers, setShowDeletedCustomers] = useState(false);
-  
+  const [showCustomerList, setShowCustomerList] = useState(true);
 
   useEffect(() => {
     loadCustomers();
@@ -1366,12 +1366,22 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
           </TouchableOpacity>
         </View>
 
-        {/* CUSTOMER LIST */}
+        {/* CUSTOMER LIST DROPDOWN */}
         <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
+          <TouchableOpacity 
+            style={styles.sectionTitleContainer}
+            onPress={() => setShowCustomerList(!showCustomerList)}
+            activeOpacity={0.7}
+          >
             <MaterialIcons name="list-alt" size={20} color="#2c3e50" />
             <Text style={styles.sectionTitle}>{i18n.t("admin.customers.directory.title")}</Text>
-          </View>
+            <MaterialIcons 
+              name={showCustomerList ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+              size={24} 
+              color="#2c3e50" 
+              style={styles.dropdownIcon}
+            />
+          </TouchableOpacity>
           <Text style={styles.countBadge}>
             {customers.length === 1
               ? i18n.t("admin.customers.directory.count_one", { count: customers.length })
@@ -1397,7 +1407,7 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
               <Text style={styles.emptyStateButtonText}>{i18n.t("admin.customers.directory.addFirst")}</Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        ) : showCustomerList ? (
           <View style={styles.listContainer}>
             {customers.map((c) => (
               <TouchableOpacity
@@ -1451,7 +1461,7 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
               </TouchableOpacity>
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* ===== DELETED CUSTOMERS SECTION ===== */}
         <View style={styles.sectionHeader}>
@@ -2635,4 +2645,7 @@ actionCardDescription: {
     fontWeight: '600',
     marginRight: 4,
   },
+  dropdownIcon: {
+    marginLeft: 4,
+  }
 });

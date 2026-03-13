@@ -28,6 +28,25 @@ export default function SwipeableVisitRow({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isAlertVisible, setIsAlertVisible] = useState(false); // Track alert visibility
   
+  const getTranslatedServiceType = (type) => {
+    const typeLower = type?.toLowerCase() || '';
+    
+    if (typeLower.includes('myocide')) {
+      return i18n.t("components.swipeableVisitRow.serviceTypes.myocide");
+    }
+    if (typeLower.includes('insecticide')) {
+      return i18n.t("components.swipeableVisitRow.serviceTypes.insecticide");
+    }
+    if (typeLower.includes('disinfection')) {
+      return i18n.t("components.swipeableVisitRow.serviceTypes.disinfection");
+    }
+    if (typeLower.includes('special')) {
+      return i18n.t("components.swipeableVisitRow.serviceTypes.special");
+    }
+    
+    return i18n.t("components.swipeableVisitRow.serviceTypes.myocide"); 
+  };
+
   const handleDownloadPDF = async () => {
     // Close swipeable first
     swipeableRef.current?.close();
@@ -220,7 +239,7 @@ export default function SwipeableVisitRow({
           <View style={styles.customerInfo}>
             <Text style={styles.customerName}>
               {visit.serviceType
-                ? visit.serviceType.charAt(0).toUpperCase() + visit.serviceType.slice(1)
+                ? getTranslatedServiceType(visit.serviceType)
                 : i18n.t("components.swipeableVisitRow.service") || "Service"}
             </Text>
             <View style={styles.customerMeta}>

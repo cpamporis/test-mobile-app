@@ -1230,11 +1230,7 @@ export default function SpecialServicesScreen({
             setNotes('');
             setHasGeneratedReport(false);
             
-            Alert.alert(
-              i18n.t("technician.specialServices.alerts.serviceCancelled"),
-              i18n.t("technician.specialServices.alerts.serviceCancelledMessage"),
-              [{ text: i18n.t("technician.common.ok") }]
-            );
+            onBack();
           }
         }
       ]
