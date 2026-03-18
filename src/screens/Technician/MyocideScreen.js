@@ -1,5 +1,4 @@
-// MyocideScreen.js - Updated with properly positioned status indicators
-
+// MyocideScreen.js - Test iOS
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
@@ -66,6 +65,25 @@ const getStationColor = (type, isCompleted) => {
     default:
       return "#1f9c8b";
   }
+};
+
+const calculateImageLayout = (containerW, containerH, imageW, imageH) => {
+  const imageRatio = imageW / imageH;
+  const containerRatio = containerW / containerH;
+
+  let width, height, offsetX = 0, offsetY = 0;
+
+  if (imageRatio > containerRatio) {
+    width = containerW;
+    height = containerW / imageRatio;
+    offsetY = (containerH - height) / 2;
+  } else {
+    height = containerH;
+    width = containerH * imageRatio;
+    offsetX = (containerW - width) / 2;
+  }
+
+  return { width, height, offsetX, offsetY };
 };
 
 // ---- Marker label layout helpers ----
@@ -181,6 +199,12 @@ function MapScreen({ customer, onBack, session, technician, onGenerateReport }) 
   const [addingStation, setAddingStation] = useState(false);
   const [removingStation, setRemovingStation] = useState(false);
   const [scale, setScale] = useState(1);
+  const [imageLayout, setImageLayout] = useState({
+    width: 0,
+    height: 0,
+    offsetX: 0,
+    offsetY: 0
+  });
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -232,6 +256,7 @@ function MapScreen({ customer, onBack, session, technician, onGenerateReport }) 
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef(null);
+  const dragStartRef = useRef({}); 
   const [showSaveCancel, setShowSaveCancel] = useState(false);
   const [workStarted, setWorkStarted] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -1418,17 +1443,37 @@ const handleSaveAll = async () => {
     }
   };
 
-  const startDrag = (id, gestureX, gestureY) => {
-    const newStations = stations.map((s) =>
-      s.id === id
-        ? {
-            ...s,
-            x: Math.max(0, Math.min(1, (gestureX - offsetX) / (deviceWidth * scale))),
-            y: Math.max(0, Math.min(1, (gestureY - offsetY) / (deviceWidth * scale)))
-          }
-        : s
+  const handleDragStart = (id, type) => {
+    const st = stations.find(s => s.id === id && (s.type || "BS") === type);
+    if (!st) return;
+
+    dragStartRef.current = {
+      id,
+      type,
+      startX: st.x,
+      startY: st.y
+    };
+  };
+
+  const handleDragMove = (evt) => {
+    const { translationX, translationY } = evt.nativeEvent;
+    const drag = dragStartRef.current;
+
+    if (!drag?.id) return;
+
+    const deltaX = translationX / imageLayout.width;
+    const deltaY = translationY / imageLayout.height;
+
+    const newX = Math.max(0, Math.min(1, drag.startX + deltaX));
+    const newY = Math.max(0, Math.min(1, drag.startY + deltaY));
+
+    setStations(prev =>
+      prev.map(st =>
+        st.id === drag.id && (st.type || "BS") === drag.type
+          ? { ...st, x: newX, y: newY }
+          : st
+      )
     );
-    setStations(newStations);
   };
 
   const debugStationCompletion = () => {
@@ -1651,8 +1696,8 @@ const handleSaveAll = async () => {
     const newStation = {
       id: getNextIdForType(editStationType),
       type: editStationType,
-      x: x / (deviceWidth * scale),
-      y: y / (deviceWidth * scale)
+      x: (x - imageLayout.offsetX) / imageLayout.width,
+      y: (y - imageLayout.offsetY) / imageLayout.height
     };
 
     setStations([...stations, newStation]);
@@ -1846,10 +1891,20 @@ const handleSaveAll = async () => {
                         source={{ uri: currentImageUri }}
                         style={styles.map}
                         resizeMode="contain"
-                        onLoad={() => console.log("✅ Image loaded:", currentImageUri)}
-                        onError={(e) => {
-                          console.error("❌ Image load failed:", e.nativeEvent.error);
-                          setImageError(true);
+                        onLoad={(e) => {
+                          const { width: imgW, height: imgH } = e.nativeEvent.source;
+
+                          const containerW = deviceWidth;
+                          const containerH = deviceWidth;
+
+                          const layout = calculateImageLayout(
+                            containerW,
+                            containerH,
+                            imgW,
+                            imgH
+                          );
+
+                          setImageLayout(layout);
                         }}
                       />
                     ) : (
@@ -1860,16 +1915,14 @@ const handleSaveAll = async () => {
                     {stations.map((st, index) => {            
                       const uniqueKey = `${st.type || "BS"}_${st.id}_${index}`;
                       
-                      const left = st.x * deviceWidth * scale;
-                      const top = st.y * deviceWidth * scale;
+                      const left = imageLayout.offsetX + (st.x * imageLayout.width);
+                      const top = imageLayout.offsetY + (st.y * imageLayout.height);
 
                       return (
                         <View key={uniqueKey} style={styles.markerWrapper}> 
                           <PanGestureHandler
-                            onGestureEvent={(evt) =>
-                              editMode &&
-                              startDrag(st.id, evt.nativeEvent.x, evt.nativeEvent.y)
-                            }
+                            onBegan={() => handleDragStart(st.id, st.type || "BS")}
+                            onGestureEvent={handleDragMove}
                           >
                             <Animated.View
                               style={[
@@ -2458,7 +2511,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  map: { width: "100%", aspectRatio: 1 },
+  map: {
+    width: deviceWidth,
+    height: deviceWidth
+  },
 
   marker: {
     position: "absolute",
