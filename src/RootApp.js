@@ -14,10 +14,11 @@ import CustomerHomeScreen from "./screens/Customer/CustomerHomeScreen";
 import CustomerVisitsScreen from "./screens/Customer/CustomerVisitsScreen";
 import CustomerProfile from "./screens/Admin/CustomerProfile";
 import PasswordRecovery from "./screens/PasswordRecovery";
+import SuperAdminHomeScreen from "./screens/SuperAdmin/SuperAdminHomeScreen";
 
 export default function RootApp() {
   const [loggedTechnician, setLoggedTechnician] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState(null); 
   const [currentCustomer, setCurrentCustomer] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [showNavigation, setShowNavigation] = useState(false);
@@ -33,7 +34,7 @@ export default function RootApp() {
 
   const handleLogout = () => {
     setLoggedTechnician(null);
-    setIsAdmin(false);
+    setAdminRole(null);
     setCurrentCustomer(null);
     setCurrentSession(null);
     setShowNavigation(false);
@@ -115,7 +116,7 @@ export default function RootApp() {
 
 
   // 1️⃣ LOGIN (LAST)
-  if (!loggedTechnician && !isAdmin && !loggedCustomer) {
+  if (!loggedTechnician && !adminRole && !loggedCustomer) {
     if (authView === "passwordRecovery") {
       return (
         <PasswordRecovery
@@ -127,7 +128,7 @@ export default function RootApp() {
 
     return (
       <LoginScreen
-        onAdminLogin={() => setIsAdmin(true)}
+        onAdminLogin={(role) => setAdminRole(role)}
         onTechnicianLogin={(tech) => setLoggedTechnician(tech)}
         onCustomerLogin={(customer) => setLoggedCustomer(customer)}
         onPasswordRecovery={() => setAuthView("passwordRecovery")}
@@ -136,7 +137,15 @@ export default function RootApp() {
   }
 
   // 2️⃣ ADMIN FLOW
-  if (isAdmin) {
+  if (adminRole === "super_admin") {
+    return (
+      <SuperAdminHomeScreen
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (adminRole === "admin") {
     if (adminView === "home") {
       return (
         <AdminHomeScreen

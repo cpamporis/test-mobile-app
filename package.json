@@ -26,6 +26,7 @@
     "expo-status-bar": "~3.0.9",
     "fs": "*",
     "i18n-js": "^4.5.3",
+    "multer": "^2.1.1",
     "path": "*",
     "react": "19.1.0",
     "react-dom": "19.1.0",

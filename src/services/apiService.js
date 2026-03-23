@@ -143,19 +143,15 @@ function getCurrentToken() {
 
 // Helper function to verify token with backend
 async function verifyTokenWithBackend(token) {
-  console.log("🔍 Verifying token with backend...");
-  
   try {
     const response = await fetch(`${API_BASE_URL}/verify-token`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ token })
+        'Authorization': `Bearer ${token}`
+      }
     });
-    
+
     const result = await response.json();
-    console.log("🔍 Token verification result:", result);
     return result;
   } catch (error) {
     console.error("❌ Token verification failed:", error);
@@ -264,6 +260,22 @@ const apiService = {
     }
   },
 
+  async getOrganizations() {
+    return request("GET", "/super-admin/organizations");
+  },
+
+  async updateOrganization(id, data) {
+    return request("PUT", `/super-admin/organizations/${id}`, data);
+  },
+
+  async getOrganizationAdmins(id) {
+    return request("GET", `/super-admin/organizations/${id}/admins`);
+  },
+
+  async createOrganizationAdmin(id, data) {
+    return request("POST", `/super-admin/organizations/${id}/admins`, data);
+  },
+
   async getTotalRequestsCreatedToday() {
     try {
       console.log("📊 Fetching TOTAL requests created today...");
@@ -324,6 +336,14 @@ const apiService = {
         error: error.message
       };
     }
+  },
+
+  async updateOrganizationAdmin(orgId, adminId, data) {
+    return request(
+      "PUT",
+      `/super-admin/organizations/${orgId}/admins/${adminId}`,
+      data
+    );
   },
 
   async getCustomerRequests(status = null) {
@@ -472,10 +492,10 @@ async getTodayCustomerRequestsCount() {
       }
     }
 
-    if (result.role === "admin") {
+    if (result.role === "admin" || result.role === "super_admin") {
       return {
         success: true,
-        role: "admin",
+        role: result.role, 
         token: result.token
       };
     }
@@ -1467,6 +1487,22 @@ async getTodayCustomerRequestsCount() {
       console.error("Error getting visitId by appointment:", error);
       return null;
     }
+  },
+
+  async deactivateOrganization(id) {
+    return request("PUT", `/super-admin/organizations/${id}/deactivate`);
+  },
+
+  async restoreOrganization(id) {
+    return request("PUT", `/super-admin/organizations/${id}/restore`);
+  },
+
+  async createOrganization(data) {
+    return request("POST", "/super-admin/organizations", data);
+  },
+
+  async hardDeleteOrganization(id) {
+    return request("DELETE", `/super-admin/organizations/${id}/permanent`);
   },
 
   async getBaitTypeNames() {
