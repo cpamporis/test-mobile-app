@@ -603,6 +603,10 @@ async getTodayCustomerRequestsCount() {
     };
   }
 },
+
+  async getOrganizationUsage() {
+    return request("GET", "/admin/usage");
+  },
   // CUSTOMERS
   async getCustomers() {
     console.log("🌐 API: Getting customers...");

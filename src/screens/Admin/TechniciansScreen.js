@@ -240,9 +240,11 @@ export default function TechniciansScreen({ onClose }) {
   const [technicianToDelete, setTechnicianToDelete] = useState(null);
   const [saveLoading, setSaveLoading] = useState(false);
   const activeTechs = technicians.filter(t => t.isActive !== false);
+  const [usage, setUsage] = useState(null);
 
   useEffect(() => {
     loadTechnicians();
+    loadUsage();
   }, []);
 
   const loadTechnicians = async () => {
@@ -271,6 +273,17 @@ export default function TechniciansScreen({ onClose }) {
     }
   };
 
+  const loadUsage = async () => {
+    try {
+      const res = await apiService.getOrganizationUsage();
+      if (res.success) {
+        setUsage(res);
+      }
+    } catch (err) {
+      console.error("Usage load error:", err);
+    }
+  };
+
   const handleAddTechnician = async (formData) => {
     setSaveLoading(true);
     try {
@@ -286,6 +299,7 @@ export default function TechniciansScreen({ onClose }) {
         Alert.alert(i18n.t("common.success"), i18n.t("admin.technicians.addModal.success") || "Technician added successfully");
         setShowAddModal(false);
         loadTechnicians();
+        loadUsage();
       } else {
         Alert.alert(i18n.t("common.error"), result?.error || i18n.t("admin.technicians.addModal.failed") || "Failed to add technician");
       }
@@ -344,6 +358,7 @@ export default function TechniciansScreen({ onClose }) {
       if (result && result.success) {
         Alert.alert(i18n.t("common.success"), i18n.t("admin.technicians.deleteModal.success") || "Technician deleted successfully");
         loadTechnicians();
+        loadUsage();
       } else {
         Alert.alert(i18n.t("common.error"), result?.error || i18n.t("admin.technicians.deleteModal.failed") || "Failed to delete technician");
       }
@@ -402,6 +417,39 @@ export default function TechniciansScreen({ onClose }) {
           </View>
         </View>
 
+        {usage && (
+          <View style={styles.subscriptionCard}>
+            
+            <View style={styles.subscriptionHeader}>
+              <Text style={styles.subscriptionPlan}>
+                {usage.subscriptionPlan.toUpperCase()} PLAN
+              </Text>
+
+              <View style={styles.subscriptionBadge}>
+                <Text style={styles.subscriptionBadgeText}>
+                  {usage.technicians.used}/{usage.technicians.max}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.subscriptionBarContainer}>
+              <View
+                style={[
+                  styles.subscriptionBarFill,
+                  {
+                    width: `${(usage.technicians.used / usage.technicians.max) * 100}%`
+                  }
+                ]}
+              />
+            </View>
+
+            <Text style={styles.subscriptionText}>
+              Technicians used: {usage.technicians.used} / {usage.technicians.max}
+            </Text>
+
+          </View>
+        )}
+
         {/* STATS BAR */}
         <View style={styles.statsBar}>
           <View style={styles.statItem}>
@@ -453,7 +501,17 @@ export default function TechniciansScreen({ onClose }) {
           </View>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => setShowAddModal(true)}
+            onPress={() => {
+              if (usage && usage.technicians.used >= usage.technicians.max) {
+                Alert.alert(
+                  "Limit reached",
+                  `You have reached your technician limit (${usage.technicians.max}). Upgrade your plan.`
+                );
+                return;
+              }
+
+              setShowAddModal(true);
+            }}
             activeOpacity={0.7}
           >
             <MaterialIcons name="person-add" size={18} color="#fff" />
@@ -729,7 +787,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#fff",
     marginHorizontal: 24,
-    marginTop: -16,
+    marginTop: 12,
     borderRadius: 16,
     padding: 20,
     shadowColor: "#000",
@@ -1213,4 +1271,62 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontWeight: '500',
   },
+  subscriptionCard: {
+  backgroundColor: "#fff",
+  marginHorizontal: 24,
+  marginTop: 16,
+  padding: 16,
+  borderRadius: 16,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.05,
+  shadowRadius: 8,
+  elevation: 3,
+  borderWidth: 1,
+  borderColor: "#f0f0f0",
+},
+
+subscriptionHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10,
+},
+
+subscriptionPlan: {
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#2c3e50",
+},
+
+subscriptionBadge: {
+  backgroundColor: "#e9f7f6",
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+  borderRadius: 10,
+},
+
+subscriptionBadgeText: {
+  color: "#1f9c8b",
+  fontWeight: "700",
+  fontSize: 12,
+},
+
+subscriptionBarContainer: {
+  height: 8,
+  backgroundColor: "#ecf0f1",
+  borderRadius: 6,
+  overflow: "hidden",
+  marginBottom: 8,
+},
+
+subscriptionBarFill: {
+  height: "100%",
+  backgroundColor: "#1f9c8b",
+},
+
+subscriptionText: {
+  fontSize: 12,
+  color: "#666",
+},
 });

@@ -99,6 +99,7 @@ function AddCustomerModal({ onClose, onSave }) {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [telephone, setTelephone] = useState("");
+  
 
   // Map upload states
   const [showMapUpload, setShowMapUpload] = useState(false);
@@ -983,9 +984,11 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
   const [deletedCustomers, setDeletedCustomers] = useState([]);
   const [showDeletedCustomers, setShowDeletedCustomers] = useState(false);
   const [showCustomerList, setShowCustomerList] = useState(true);
+  const [usage, setUsage] = useState(null);
 
   useEffect(() => {
     loadCustomers();
+    loadUsage();
   }, []);
 
   useEffect(() => {
@@ -1009,6 +1012,22 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
   const handleOpenReportFromProfile = (visitData) => {
     console.log("📄 Passing through report data:", visitData);
     // Let CustomerProfile handle everything
+  };
+
+  const loadUsage = async () => {
+    console.log("➡️ loadUsage called");
+
+    try {
+      const res = await apiService.getOrganizationUsage();
+
+      console.log("✅ AFTER API CALL", res);
+
+      if (res.success) {
+        setUsage(res);
+      }
+    } catch (err) {
+      console.error("❌ Usage load error:", err);
+    }
   };
 
   async function loadCustomers() {
@@ -1065,8 +1084,9 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
     }
   };
 
-  function handleAddCustomer(newCustomer) {
+  async function handleAddCustomer(newCustomer) {
     setCustomers(prev => [newCustomer, ...prev]);
+    await loadUsage(); 
   }
 
   async function handleEditCustomer(data) {
@@ -1239,6 +1259,39 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
           </View>
         </View>
 
+        {usage && (
+          <View style={styles.subscriptionCard}>
+            
+            <View style={styles.subscriptionHeader}>
+              <Text style={styles.subscriptionPlan}>
+                {usage.subscriptionPlan.toUpperCase()} PLAN
+              </Text>
+
+              <View style={styles.subscriptionBadge}>
+                <Text style={styles.subscriptionBadgeText}>
+                  {usage.customers.used}/{usage.customers.max}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.subscriptionBarContainer}>
+              <View
+                style={[
+                  styles.subscriptionBarFill,
+                  {
+                    width: `${(usage.customers.used / usage.customers.max) * 100}%`
+                  }
+                ]}
+              />
+            </View>
+
+            <Text style={styles.subscriptionText}>
+              Customers used: {usage.customers.used} / {usage.customers.max}
+            </Text>
+
+          </View>
+        )}
+
         {/* STATS BAR */}
         <View style={styles.statsBar}>
           <View style={styles.statItem}>
@@ -1288,8 +1341,25 @@ export default function CustomersScreen({ onClose, onOpenReport }) {
 
         <View style={styles.actionsGrid}>
           <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: "#1f9c8b" }]}
-            onPress={() => setShowAdd(true)}
+            style={[
+              styles.actionCard,
+              {
+                backgroundColor:
+                  usage && usage.customers.used >= usage.customers.max
+                    ? "#ccc"
+                    : "#1f9c8b"
+              }
+            ]}
+            onPress={() => {
+              if (usage && usage.customers.used >= usage.customers.max) {
+                Alert.alert(
+                  "Limit reached",
+                  `You have reached your customer limit (${usage.customers.max}). Upgrade your plan to add more.`
+                );
+                return;
+              }
+              setShowAdd(true);
+            }}
             activeOpacity={0.7}
           >
             <MaterialIcons name="person-add" size={28} color="#fff" />
@@ -1779,7 +1849,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#fff",
     marginHorizontal: 24,
-    marginTop: -16,
+    marginTop: 12,
     borderRadius: 16,
     padding: 20,
     shadowColor: "#000",
@@ -2647,5 +2717,63 @@ actionCardDescription: {
   },
   dropdownIcon: {
     marginLeft: 4,
-  }
+  },
+  subscriptionCard: {
+  backgroundColor: "#fff",
+  marginHorizontal: 24,
+  marginTop: 16,
+  padding: 16,
+  borderRadius: 16,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.05,
+  shadowRadius: 8,
+  elevation: 3,
+  borderWidth: 1,
+  borderColor: "#f0f0f0",
+},
+
+subscriptionHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10,
+},
+
+subscriptionPlan: {
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#2c3e50",
+},
+
+subscriptionBadge: {
+  backgroundColor: "#e9f7f6",
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+  borderRadius: 10,
+},
+
+subscriptionBadgeText: {
+  color: "#1f9c8b",
+  fontWeight: "700",
+  fontSize: 12,
+},
+
+subscriptionBarContainer: {
+  height: 8,
+  backgroundColor: "#ecf0f1",
+  borderRadius: 6,
+  overflow: "hidden",
+  marginBottom: 8,
+},
+
+subscriptionBarFill: {
+  height: "100%",
+  backgroundColor: "#1f9c8b",
+},
+
+subscriptionText: {
+  fontSize: 12,
+  color: "#666",
+},
 });
